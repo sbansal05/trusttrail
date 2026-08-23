@@ -25,9 +25,9 @@ const WEIGHTS = {
 };
 
 // ── Types ──────────────────────────────────────────────
-async function getTransaction() {
+async function getTransaction(walletAddress: string) {
     return await helius.getTransactionsForAddress([
-        TEST_ADDRESS,
+        walletAddress,
         {
             limit: 100,
             transactionDetails: "full",
@@ -58,7 +58,9 @@ type ScoreBreakdown = {
 };
 
 // ── Fetching ───────────────────────────────────────────
-async function getAllTransactions(): Promise<TransactionList> {
+// Shared by computeActivityScore and computeDiversityScore — both now
+// take a real walletAddress and pass it through here.
+async function getAllTransactions(walletAddress: string): Promise<TransactionList> {
     let allTransactions: TransactionList = [];
     let token: string | null | undefined = undefined;
     let pages = 0;
@@ -66,7 +68,7 @@ async function getAllTransactions(): Promise<TransactionList> {
 
     do {
         const response: TransactionsResponse = await helius.getTransactionsForAddress([
-            TEST_ADDRESS,
+            walletAddress,
             {
                 limit: 100,
                 transactionDetails: "full",
@@ -94,8 +96,8 @@ async function getAllTransactions(): Promise<TransactionList> {
 }
 
 // ── History ────────────────────────────────────────────
-async function computeHistoryScore(): Promise<number> {
-    const response = await getTransaction();
+export async function computeHistoryScore(walletAddress: string): Promise<number> {
+    const response = await getTransaction(walletAddress);
     const oldestBlocktime = response.data[0].blockTime;
     if (oldestBlocktime === null) {
         throw new Error("Oldest transaction has no blockTime");
@@ -142,8 +144,8 @@ function computeConsistencyScore(monthCounts: Record<string, number>, minMonthly
     return (monthsHittingFloor / months) * 1000;
 }
 
-async function computeActivityScore(): Promise<number> {
-    const allTransactions = await getAllTransactions();
+export async function computeActivityScore(walletAddress: string): Promise<number> {
+    const allTransactions = await getAllTransactions(walletAddress);
     const monthCounts = countTxnsByMonth(allTransactions);
     return computeConsistencyScore(monthCounts, MIN_MONTHLY_TXNS);
 }
@@ -163,14 +165,17 @@ function getUniqueProgramIds(transactions: TransactionList): Set<string> {
     return programIds;
 }
 
-async function computeDiversityScore(): Promise<number> {
-    const allTransactions = await getAllTransactions();
+export async function computeDiversityScore(walletAddress: string): Promise<number> {
+    const allTransactions = await getAllTransactions(walletAddress);
     const programIds = getUniqueProgramIds(allTransactions);
     return Math.min(programIds.size / MAX_DIVERSITY, 1) * 1000;
 }
 
 // ── Wealth ─────────────────────────────────────────────
-// Note: staking intentionally excluded — getHeliusStakeAccounts only sees
+// NOTE: still hardcoded to TEST_ADDRESS — the one remaining function not
+// yet threaded through. Doesn't depend on getAllTransactions, so it's a
+// clean standalone conversion whenever it's done next.
+// Staking intentionally excluded — getHeliusStakeAccounts only sees
 // stakes delegated to Helius's own validator, not staking in general, so
 // it would silently undercount most real stakers. Revisit later if a
 // general Stake Program lookup gets added.
@@ -191,12 +196,14 @@ async function computeWealthScore(): Promise<number> {
 }
 
 // ── Total ──────────────────────────────────────────────
-async function calculateTrustScore(): Promise<ScoreBreakdown> {
-    const historyScore = await computeHistoryScore();
-    const activityScore = await computeActivityScore();
-    const diversityScore = await computeDiversityScore();
+export async function calculateTrustScore(walletAddress: string): Promise<ScoreBreakdown> {
+    const historyScore = await computeHistoryScore(walletAddress);
+    const activityScore = await computeActivityScore(walletAddress);
+    const diversityScore = await computeDiversityScore(walletAddress);
     const wealthScore = await computeWealthScore();
 
+    // Identity and Humanity get filled in once the Reclaim proof-verification
+    // path is wired up — stubbed at 0 for now.
     const identityScore = 0;
     const humanityScore = 0;
 
@@ -220,11 +227,13 @@ async function calculateTrustScore(): Promise<ScoreBreakdown> {
     };
 }
 
+// ── Manual testing (only runs when this file is executed directly,
+// never when another file imports from it) ──
 async function main() {
-    const result = await calculateTrustScore();
+    const result = await calculateTrustScore(TEST_ADDRESS);
     console.log(result);
 }
 
-main();
-
-//also can we make a doc of this where we add what all we did rough engineering what geniune project related problem we hit and how we solved it
+if (import.meta.url === `file://${process.argv[1]}`) {
+    main();
+}
