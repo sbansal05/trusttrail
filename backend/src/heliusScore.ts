@@ -83,13 +83,19 @@ async function getAllTransactions(walletAddress: string): Promise<TransactionLis
         pages = pages + 1;
 
         const oldestTx = response.data[response.data.length - 1];
-        const oldestBlocktime = oldestTx.blockTime;
-        if (oldestBlocktime !== null) {
-            const ageDays = (cutoffSeconds - oldestBlocktime) / 60 / 60 / 24;
-            if (ageDays > MAX_AGE_DAYS) {
-                token = null;
+       
+        if (oldestTx) {
+            const oldestBlocktime = oldestTx.blockTime;
+            if (oldestBlocktime !== null) {
+                const ageDays = (cutoffSeconds - oldestBlocktime) / 60 / 60 / 24;
+                if (ageDays > MAX_AGE_DAYS) {
+                    token = null;
+                }
             }
+
+
         }
+        
     } while (token !== null && token !== undefined && pages < MAX_PAGES);
 
     return allTransactions;
@@ -98,6 +104,9 @@ async function getAllTransactions(walletAddress: string): Promise<TransactionLis
 // ── History ────────────────────────────────────────────
 export async function computeHistoryScore(walletAddress: string): Promise<number> {
     const response = await getTransaction(walletAddress);
+    if (response.data.length === 0) {
+        return 0;
+    }
     const oldestBlocktime = response.data[0].blockTime;
     if (oldestBlocktime === null) {
         throw new Error("Oldest transaction has no blockTime");
@@ -131,7 +140,7 @@ function countTxnsByMonth(transactions: TransactionList): Record<string, number>
 function computeConsistencyScore(monthCounts: Record<string, number>, minMonthlyTxns: number): number {
     const months = Object.keys(monthCounts).length;
     if (months === 0) {
-        throw new Error("Zero active months");
+        return 0;
     }
 
     let monthsHittingFloor = 0;
@@ -179,9 +188,9 @@ export async function computeDiversityScore(walletAddress: string): Promise<numb
 // stakes delegated to Helius's own validator, not staking in general, so
 // it would silently undercount most real stakers. Revisit later if a
 // general Stake Program lookup gets added.
-async function computeWealthScore(): Promise<number> {
+async function computeWealthScore(walletAddress: string): Promise<number> {
     const balances = await helius.wallet.getBalances({
-        wallet: TEST_ADDRESS,
+        wallet: walletAddress,
         showNative: true,
         showNfts: false,
     });
@@ -200,7 +209,7 @@ export async function calculateTrustScore(walletAddress: string): Promise<ScoreB
     const historyScore = await computeHistoryScore(walletAddress);
     const activityScore = await computeActivityScore(walletAddress);
     const diversityScore = await computeDiversityScore(walletAddress);
-    const wealthScore = await computeWealthScore();
+    const wealthScore = await computeWealthScore(walletAddress);
 
     // Identity and Humanity get filled in once the Reclaim proof-verification
     // path is wired up — stubbed at 0 for now.

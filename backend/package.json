@@ -14,10 +14,12 @@
     "@coral-xyz/anchor": "^0.32.1",
     "@reclaimprotocol/js-sdk": "^5.8.2",
     "@solana/web3.js": "^1.98.4",
+    "cors": "^2.8.6",
     "express": "^5.2.1",
     "helius-sdk": "^3.1.0"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^26.2.0",
     "tsx": "^4.23.12",
