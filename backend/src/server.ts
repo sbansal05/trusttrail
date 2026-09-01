@@ -6,7 +6,7 @@ import { AnchorProvider, Program, Wallet } from "@coral-xyz/anchor";
 import { Trusttrail } from "../../target/types/trusttrail";
 import idl from "../../target/idl/trusttrail.json";
 import cors from "cors";
-
+import BN from "bn.js";
 process.loadEnvFile();
 
 const app = express();
@@ -60,7 +60,7 @@ app.post("/verify-and-score", async (req, res) => {
         // account doesn't exist yet — first verification ever for this user, stays at 0n
     }
 
-    const newMask = currentBitMask | (1n << BigInt(newBit));
+    const newMask = new BN((currentBitMask | (1n << BigInt(newBit))).toString());
     const breakdown = await calculateTrustScore(walletAddress);
 
     

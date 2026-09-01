@@ -3,14 +3,14 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { BorshAccountsCoder } from "@coral-xyz/anchor";
 import idl from "../../target/idl/trusttrail.json";
-
+import BN from "bn.js";
 const PROGRAM_ID = new PublicKey("BtgvVKaXQMJsRUdZ8ahuBftnwDpYtass15TqTwsJJA9s");
 const USER_REPUTATION_SEED = Buffer.from("trust-v1");
 
 export type userReputation = {
     score: number;
     lastUpdate: number;
-    claimsBitmask: bigint;
+    claims_bitmask: BN;
     flags: number;
     bump: number;
 };
@@ -43,6 +43,9 @@ export function useUserReputation() {
         
         const coder = new BorshAccountsCoder(idl as any);
         const decoded = coder.decode("UserReputation", info.data);
+        console.log("raw decoded:", decoded);
+        console.log("claimsBitmask type:", typeof decoded.claimsBitmask, decoded.claimsBitmask?.constructor?.name);
+        console.log("raw decoded keys:", Object.keys(decoded));
         setReputation(decoded);
         
         setLoading(false);
