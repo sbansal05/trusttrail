@@ -86,5 +86,26 @@ app.get("/score/:walletAddress", async (req, res) => {
         res.status(500).json({ error: "failed to compute score" });
     }
 });
+app.post("/update-score/:walletAddress", async (req, res) => {
+    try {
+        const walletAddress = req.params.walletAddress;
+        const walletPubKey = new PublicKey(walletAddress);
+        const breakdown = await calculateTrustScore(walletAddress);
+
+        const tx = await program.methods
+            .updateScore(breakdown.total, new BN(0), 0)
+            .accounts({
+                user: walletPubKey,
+                authority: authorityKeypair.publicKey,
+            })
+            .signers([authorityKeypair])
+            .rpc();
+        res.json({ walletAddress, breakdown, tx });
+    } catch(err) {
+        console.error("update-score failed", err);
+        res.status(500).json({ error: "failed to update score" });
+
+    }
+});
 
 app.listen(3000, () => console.log("listening on port 3000"));

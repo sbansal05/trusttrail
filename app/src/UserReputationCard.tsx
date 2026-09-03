@@ -1,6 +1,5 @@
 import BN from "bn.js";
 import { GuillocheBackground } from "./GuillocheBackground";
-import { BitmaskGrid } from "./Bitmaskgrid";
 
 type UserReputation = {
     score: number;
@@ -64,7 +63,6 @@ export function UserReputationCard({ reputation }: { reputation: UserReputation 
                     </span>
                 </div>
 
-                <BitmaskGrid claimsBitmask={reputation.claims_bitmask} />
             </div>
         </div>
     );

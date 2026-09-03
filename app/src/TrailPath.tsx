@@ -2,9 +2,9 @@ type ScoreBreakDown = {
   total: number;
   historyScore: number;
   activityScore: number;
-  identityScore: number;
+  repaymentScore: number;
   wealthScore: number;
-  humanityScore: number;
+  liquidationScore: number;
   diversityScore: number;
 };
 
@@ -13,8 +13,8 @@ const STOPS: { key: keyof ScoreBreakDown; label: string }[] = [
   { key: "activityScore", label: "Activity" },
   { key: "diversityScore", label: "Diversity" },
   { key: "wealthScore", label: "Wealth" },
-  { key: "identityScore", label: "Identity" },
-  { key: "humanityScore", label: "Humanity" },
+  { key: "repaymentScore", label: "Repayment" },
+  { key: "liquidationScore", label: "Liquidation" },
 ];
 
 export function TrustTrailPath({ score }: { score: ScoreBreakDown }) {

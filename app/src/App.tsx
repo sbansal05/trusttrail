@@ -3,7 +3,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { TrustTrailPath } from "./TrailPath";
 import { useUserReputation } from "./useUserReputation";
-import { VerifyButton } from "./VerifyButton";
+import { UpdateScoreButton } from "./UpdateScoreButton";
 import { UserReputationCard } from "./UserReputationCard";
 
 type ScoreBreakDown = {
@@ -93,7 +93,7 @@ function App() {
 
             {publicKey && (
                 <div style={{ textAlign: "center" }}>
-                    <VerifyButton walletAddress={publicKey.toBase58()} onVerified={refetch} />
+                    <UpdateScoreButton walletAddress={publicKey.toBase58()} onUpdated={refetch} />
                 </div>
             )}
 

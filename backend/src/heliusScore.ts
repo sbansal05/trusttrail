@@ -1,4 +1,5 @@
 import { createHelius } from "helius-sdk";
+import { computeLiquidationScore, computeRepaymentScore, getKaminoActionCounts } from "./getObligations";
 
 process.loadEnvFile();
 
@@ -13,15 +14,15 @@ const MAX_AGE_DAYS = 730;
 const MIN_MONTHLY_TXNS = 5;
 const MAX_DIVERSITY = 15;
 const MAX_PAGES = 20;
-const MAX_WEALTH_USD = 100_100; // placeholder ceiling — tune once you've seen more real wallets
+const MAX_WEALTH_USD = 100_100; 
 
 const WEIGHTS = {
-    history: 0.20,
-    activity: 0.20,
-    identity: 0.15,
-    wealth: 0.15,
-    humanity: 0.20,
+    history: 0.15,
+    activity: 0.15,
     diversity: 0.10,
+    wealth: 0.15,
+    repayment: 0.30,
+    liquidation: 0.15,
 };
 
 // ── Types ──────────────────────────────────────────────
@@ -51,16 +52,15 @@ type ScoreBreakdown = {
     total: number;
     historyScore: number;
     activityScore: number;
-    identityScore: number;
     wealthScore: number;
-    humanityScore: number;
     diversityScore: number;
+    repaymentScore: number;
+    liquidationScore: number;
 };
 
 // ── Fetching ───────────────────────────────────────────
-// Shared by computeActivityScore and computeDiversityScore — both now
-// take a real walletAddress and pass it through here.
-async function getAllTransactions(walletAddress: string): Promise<TransactionList> {
+
+export async function getAllTransactions(walletAddress: string): Promise<TransactionList> {
     let allTransactions: TransactionList = [];
     let token: string | null | undefined = undefined;
     let pages = 0;
@@ -180,14 +180,7 @@ export async function computeDiversityScore(walletAddress: string): Promise<numb
     return Math.min(programIds.size / MAX_DIVERSITY, 1) * 1000;
 }
 
-// ── Wealth ─────────────────────────────────────────────
-// NOTE: still hardcoded to TEST_ADDRESS — the one remaining function not
-// yet threaded through. Doesn't depend on getAllTransactions, so it's a
-// clean standalone conversion whenever it's done next.
-// Staking intentionally excluded — getHeliusStakeAccounts only sees
-// stakes delegated to Helius's own validator, not staking in general, so
-// it would silently undercount most real stakers. Revisit later if a
-// general Stake Program lookup gets added.
+
 async function computeWealthScore(walletAddress: string): Promise<number> {
     const balances = await helius.wallet.getBalances({
         wallet: walletAddress,
@@ -211,33 +204,33 @@ export async function calculateTrustScore(walletAddress: string): Promise<ScoreB
     const diversityScore = await computeDiversityScore(walletAddress);
     const wealthScore = await computeWealthScore(walletAddress);
 
-    // Identity and Humanity get filled in once the Reclaim proof-verification
-    // path is wired up — stubbed at 0 for now.
-    const identityScore = 0;
-    const humanityScore = 0;
+    const kaminoCounts = await getKaminoActionCounts(walletAddress);
+    const repaymentScore = computeRepaymentScore(kaminoCounts);
+    const liquidationScore = computeLiquidationScore(kaminoCounts);
+
+    
 
     const total = Math.round(
         WEIGHTS.history * historyScore +
         WEIGHTS.activity * activityScore +
-        WEIGHTS.identity * identityScore +
         WEIGHTS.wealth * wealthScore +
-        WEIGHTS.humanity * humanityScore +
-        WEIGHTS.diversity * diversityScore
+        WEIGHTS.diversity * diversityScore +
+        WEIGHTS.repayment * repaymentScore +
+        WEIGHTS.liquidation * liquidationScore
     );
 
     return {
         total,
         historyScore,
         activityScore,
-        identityScore,
         wealthScore,
-        humanityScore,
         diversityScore,
+        repaymentScore,
+        liquidationScore
     };
 }
 
-// ── Manual testing (only runs when this file is executed directly,
-// never when another file imports from it) ──
+
 async function main() {
     const result = await calculateTrustScore(TEST_ADDRESS);
     console.log(result);
