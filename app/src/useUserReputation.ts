@@ -9,7 +9,7 @@ const USER_REPUTATION_SEED = Buffer.from("trust-v1");
 
 export type userReputation = {
     score: number;
-    lastUpdate: number;
+    last_update: number;
     claims_bitmask: BN;
     flags: number;
     bump: number;
@@ -40,12 +40,10 @@ export function useUserReputation() {
             setLoading(false);
             return;
         }
-        
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const coder = new BorshAccountsCoder(idl as any);
         const decoded = coder.decode("UserReputation", info.data);
-        console.log("raw decoded:", decoded);
-        console.log("claimsBitmask type:", typeof decoded.claimsBitmask, decoded.claimsBitmask?.constructor?.name);
-        console.log("raw decoded keys:", Object.keys(decoded));
+      
         setReputation(decoded);
         
         setLoading(false);

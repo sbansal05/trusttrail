@@ -10,9 +10,7 @@ function buildRingPath(cx: number, cy: number, baseR: number, wobble: number, fr
     return points.join(" ") + " Z";
 }
 
-// A faint engraved-ring texture, the kind used on currency and certificates
-// as an anti-counterfeiting pattern — fits "verified trust record" better
-// than a flat background. Pure SVG, no canvas/resize-listener needed.
+
 export function GuillocheBackground() {
     const cx = 320;
     const cy = 40;

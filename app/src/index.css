@@ -36,3 +36,23 @@ button:disabled {
   opacity: 0.5;
   cursor: default;
 }
+
+.tt-button-primary {
+  background: var(--tt-accent);
+  color: var(--tt-bg);
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-family: var(--tt-font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+.tt-button-primary:hover {
+  opacity: 0.85;
+}
+.tt-button-primary:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

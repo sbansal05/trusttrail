@@ -39,7 +39,6 @@ pub struct UpdateScore<'info> {
     )]
     pub user_reputation: Account<'info, UserReputation>,
 
-    /// CHECK: only used to derive user_reputation's PDA seeds, never read or written directly
     pub user: UncheckedAccount<'info>,
 
     #[account(mut)]
