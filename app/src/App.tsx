@@ -23,8 +23,6 @@ function App() {
     const [showDevTools, setShowDevTools] = useState(false);
     const [result, setResult] = useState<string>("");
 
-   
-
     async function checkScore() {
         if (!publicKey) {
             setResult("Connect your wallet first");
@@ -64,19 +62,60 @@ function App() {
                     On-chain reputation, verified across your history
                 </p>
 
+                {!publicKey && (
+                    <div style={{ textAlign: "center", padding: "2rem 0" }}>
+                        <p
+                            style={{
+                                fontSize: 15,
+                                color: "var(--tt-text-secondary)",
+                                lineHeight: 1.7,
+                                maxWidth: 480,
+                                margin: "0 auto 2rem",
+                            }}
+                        >
+                            Every major Solana lending protocol treats your wallet as an anonymous
+                            stranger with zero history — forcing over-collateralization no matter
+                            how long you've been using DeFi responsibly. TrustTrail turns your real
+                            on-chain behavior into a portable score any protocol can trust.
+                        </p>
+                        <div
+                            style={{
+                                display: "flex",
+                                justifyContent: "center",
+                                gap: 32,
+                                flexWrap: "wrap",
+                                marginBottom: "2rem",
+                            }}
+                        >
+                            <div>
+                                <p style={{ fontFamily: "var(--tt-font-mono)", fontSize: 24, color: "var(--tt-accent)", margin: 0 }}>
+                                    35%
+                                </p>
+                                <p style={{ fontSize: 12, color: "var(--tt-text-muted)", margin: 0 }}>Repayment history</p>
+                            </div>
+                            <div>
+                                <p style={{ fontFamily: "var(--tt-font-mono)", fontSize: 24, color: "var(--tt-accent)", margin: 0 }}>
+                                    6
+                                </p>
+                                <p style={{ fontSize: 12, color: "var(--tt-text-muted)", margin: 0 }}>On-chain factors</p>
+                            </div>
+                            <div>
+                                <p style={{ fontFamily: "var(--tt-font-mono)", fontSize: 24, color: "var(--tt-accent)", margin: 0 }}>
+                                    0–1000
+                                </p>
+                                <p style={{ fontSize: 12, color: "var(--tt-text-muted)", margin: 0 }}>Score range</p>
+                            </div>
+                        </div>
+                        <p style={{ fontSize: 13, color: "var(--tt-text-muted)" }}>
+                            Connect your wallet above to see your own score.
+                        </p>
+                    </div>
+                )}
 
                 {publicKey && !score && (
                     <div style={{ textAlign: "center", marginBottom: "1rem" }}>
                         <button onClick={checkScore}>Preview my score</button>
                     </div>
-                )}
-                {publicKey && score && (
-                    <>
-                        <TrustTrailPath score={score} />
-                        <p style={{ textAlign: "center", fontSize: 12, color: "var(--tt-text-muted)", marginTop: -16, marginBottom: "2rem" }}>
-                            Live preview — nothing is saved until you record it on-chain below.
-                        </p>
-                    </>
                 )}
 
                 {loading && (
@@ -91,10 +130,30 @@ function App() {
                     </p>
                 )}
 
+                {/* On-chain record — the main thing — shown first */}
                 {!loading && reputation && (
                     <div style={{ marginBottom: "1.5rem" }}>
                         <UserReputationCard reputation={reputation} />
                     </div>
+                )}
+
+                {/* Live preview trail — shown below the real on-chain record */}
+                {publicKey && score && (
+                    <>
+                        <div style={{ marginBottom: "0.75rem" }}>
+                            <TrustTrailPath score={score} />
+                        </div>
+                        <p
+                            style={{
+                                textAlign: "center",
+                                fontSize: 12,
+                                color: "var(--tt-text-muted)",
+                                marginBottom: "2rem",
+                            }}
+                        >
+                            Live preview — nothing is saved until you record it on-chain below.
+                        </p>
+                    </>
                 )}
 
                 {publicKey && (

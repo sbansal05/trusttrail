@@ -23,11 +23,11 @@ Six factors, weighted toward what actually predicts creditworthiness rather than
 
 | Factor | Weight | What it measures |
 |---|---|---|
-| **Repayment** | 30% | Of every loan taken out on Kamino, how many were repaid |
-| **History** | 15% | Wallet age |
-| **Activity** | 15% | Consistency of on-chain activity, month over month |
-| **Liquidation** | 15% | Liquidation events, penalized on an escalating curve |
+| **Repayment** | 35% | Of every loan taken out on Kamino, how many were repaid |
+| **Liquidation** | 20% | Liquidation events, penalized on an escalating curve |
 | **Wealth** | 15% | Log-scaled portfolio value |
+| **History** | 10% | Wallet age |
+| **Activity** | 10% | Consistency of on-chain activity, month over month |
 | **Diversity** | 10% | Breadth of distinct programs the wallet has interacted with |
 
 Every wallet is scored 0–1000 and lands in a tier — **Bronze** (0–499), **Silver** (500–749), **Gold** (750–1000) — matching the trust level most dApps would reasonably gate around.

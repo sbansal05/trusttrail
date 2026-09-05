@@ -14,12 +14,12 @@ const MAX_DIVERSITY = 15;
 const MAX_WEALTH_USD = 100_100;
 
 const WEIGHTS = {
-    history: 0.15,
-    activity: 0.15,
+    history: 0.10,
+    activity: 0.10,
     diversity: 0.10,
     wealth: 0.15,
-    repayment: 0.30,
-    liquidation: 0.15,
+    repayment: 0.35,
+    liquidation: 0.20,
 };
 
 type ScoreBreakdown = {
