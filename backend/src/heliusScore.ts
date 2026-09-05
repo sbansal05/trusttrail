@@ -1,20 +1,17 @@
-import { createHelius } from "helius-sdk";
-import { computeLiquidationScore, computeRepaymentScore, getKaminoActionCounts } from "./getObligations";
+import { getKaminoActionCounts, computeRepaymentScore, computeLiquidationScore } from "./getObligations";
+import {
+    helius,
+    getTransaction,
+    getAllTransactions,
+    MAX_AGE_DAYS,
+    TransactionList,
+    TransactionWithMessage,
+} from "./heliusClient";
 
-process.loadEnvFile();
-
-// ── Setup ──────────────────────────────────────────────
-const helius = createHelius({
-    apiKey: process.env.HELIUS_API,
-    network: "mainnet",
-});
-
-const TEST_ADDRESS = "";
-const MAX_AGE_DAYS = 730;
+const TEST_ADDRESS = "AgmLJBMDCqWynYnQiPCuj9ewsNNsBJXyzoUhD9LJzN51";
 const MIN_MONTHLY_TXNS = 5;
 const MAX_DIVERSITY = 15;
-const MAX_PAGES = 20;
-const MAX_WEALTH_USD = 100_100; 
+const MAX_WEALTH_USD = 100_100;
 
 const WEIGHTS = {
     history: 0.15,
@@ -23,29 +20,6 @@ const WEIGHTS = {
     wealth: 0.15,
     repayment: 0.30,
     liquidation: 0.15,
-};
-
-// ── Types ──────────────────────────────────────────────
-async function getTransaction(walletAddress: string) {
-    return await helius.getTransactionsForAddress([
-        walletAddress,
-        {
-            limit: 100,
-            transactionDetails: "full",
-            filters: { tokenAccounts: "none" },
-            sortOrder: "asc",
-        },
-    ]);
-}
-type TransactionsResponse = Awaited<ReturnType<typeof getTransaction>>;
-type TransactionList = TransactionsResponse["data"];
-
-type TransactionMessage = {
-    accountKeys: string[];
-    instructions: { programIdIndex: number }[];
-};
-type TransactionWithMessage = {
-    message: TransactionMessage;
 };
 
 type ScoreBreakdown = {
@@ -57,49 +31,6 @@ type ScoreBreakdown = {
     repaymentScore: number;
     liquidationScore: number;
 };
-
-// ── Fetching ───────────────────────────────────────────
-
-export async function getAllTransactions(walletAddress: string): Promise<TransactionList> {
-    let allTransactions: TransactionList = [];
-    let token: string | null | undefined = undefined;
-    let pages = 0;
-    const cutoffSeconds = Date.now() / 1000;
-
-    do {
-        const response: TransactionsResponse = await helius.getTransactionsForAddress([
-            walletAddress,
-            {
-                limit: 100,
-                transactionDetails: "full",
-                filters: { tokenAccounts: "none" },
-                sortOrder: "desc",
-                paginationToken: token,
-            },
-        ]);
-
-        allTransactions = [...allTransactions, ...response.data];
-        token = response.data.length > 0 ? response.paginationToken : null;
-        pages = pages + 1;
-
-        const oldestTx = response.data[response.data.length - 1];
-       
-        if (oldestTx) {
-            const oldestBlocktime = oldestTx.blockTime;
-            if (oldestBlocktime !== null) {
-                const ageDays = (cutoffSeconds - oldestBlocktime) / 60 / 60 / 24;
-                if (ageDays > MAX_AGE_DAYS) {
-                    token = null;
-                }
-            }
-
-
-        }
-        
-    } while (token !== null && token !== undefined && pages < MAX_PAGES);
-
-    return allTransactions;
-}
 
 // ── History ────────────────────────────────────────────
 export async function computeHistoryScore(walletAddress: string): Promise<number> {
@@ -180,7 +111,7 @@ export async function computeDiversityScore(walletAddress: string): Promise<numb
     return Math.min(programIds.size / MAX_DIVERSITY, 1) * 1000;
 }
 
-
+// ── Wealth ─────────────────────────────────────────────
 async function computeWealthScore(walletAddress: string): Promise<number> {
     const balances = await helius.wallet.getBalances({
         wallet: walletAddress,
@@ -189,7 +120,7 @@ async function computeWealthScore(walletAddress: string): Promise<number> {
     });
 
     let totalUsdValue = balances.totalUsdValue;
-    if (totalUsdValue === 0) totalUsdValue += 1; // avoid Math.log(0) = -Infinity
+    if (totalUsdValue === 0) totalUsdValue += 1;
 
     const logValue = Math.log(totalUsdValue);
     const logCeiling = Math.log(MAX_WEALTH_USD);
@@ -208,8 +139,6 @@ export async function calculateTrustScore(walletAddress: string): Promise<ScoreB
     const repaymentScore = computeRepaymentScore(kaminoCounts);
     const liquidationScore = computeLiquidationScore(kaminoCounts);
 
-    
-
     const total = Math.round(
         WEIGHTS.history * historyScore +
         WEIGHTS.activity * activityScore +
@@ -226,10 +155,9 @@ export async function calculateTrustScore(walletAddress: string): Promise<ScoreB
         wealthScore,
         diversityScore,
         repaymentScore,
-        liquidationScore
+        liquidationScore,
     };
 }
-
 
 async function main() {
     const result = await calculateTrustScore(TEST_ADDRESS);
