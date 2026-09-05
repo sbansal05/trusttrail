@@ -12,6 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Update Rust toolchain
+        run: rustup update stable
+
 
       # Pinned to exact versions rather than "stable" — the stable resolver
       # in these actions queries GitHub's Releases API directly, which is

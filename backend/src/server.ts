@@ -8,7 +8,6 @@ import idl from "../../target/idl/trusttrail.json";
 import cors from "cors";
 import BN from "bn.js";
 import bs58 from "bs58";
-process.loadEnvFile();
 
 const app = express();
 app.use(cors({ origin: "http://localhost:5173" }));

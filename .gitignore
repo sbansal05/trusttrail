@@ -1,6 +1,10 @@
 .anchor
 .DS_Store
-target
+target/*
+!target/idl
+!target/idl/trusttrail.json
+!target/types
+!target/types/trusttrail.ts
 **/*.rs.bk
 node_modules
 test-ledger
