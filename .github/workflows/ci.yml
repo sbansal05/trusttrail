@@ -16,22 +16,13 @@ jobs:
       - name: Update Rust toolchain
         run: rustup update stable
 
-      # Pinned to exact versions rather than "stable" — the stable resolver
-      # in these actions queries GitHub's Releases API directly, which is
-      # known to rate-limit and break CI non-deterministically. Pinned here
-      # to match the toolchain this project was actually built and tested
-      # against locally (Anchor 1.1.2, Solana CLI 4.1.1).
+      
       - name: Setup Solana
         uses: heyAyushh/setup-solana@v5.9
         with:
           solana-cli-version: 4.1.1
 
-      # Solana's own setup appears to reset the active Rust toolchain to an
-      # older pinned version (observed: back to 1.89.0 even after updating
-      # to stable above) — likely tied to its BPF/SBF program-compilation
-      # toolchain. Reassert stable here, right before Anchor needs it, and
-      # print the version so any future failure here is immediately visible
-      # in the log rather than silently mismatched again.
+      
       - name: Reassert stable Rust toolchain
         run: |
           rustup update stable
@@ -40,6 +31,8 @@ jobs:
 
       - name: Setup Anchor
         uses: heyAyushh/setup-anchor@v4.999
+        env:
+          RUSTUP_TOOLCHAIN: stable
         with:
           anchor-version: 1.1.2
           solana-cli-version: 4.1.1
