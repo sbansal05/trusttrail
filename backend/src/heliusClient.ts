@@ -1,4 +1,8 @@
-process.loadEnvFile();
+try {
+    process.loadEnvFile();
+} catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+}
 import { createHelius } from "helius-sdk";
 
 export const helius = createHelius({

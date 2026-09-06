@@ -1,4 +1,8 @@
-process.loadEnvFile();
+try {
+    process.loadEnvFile();
+} catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+}
 import express from "express";
 import { calculateTrustScore } from "./heliusScore";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";

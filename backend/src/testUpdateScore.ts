@@ -4,8 +4,11 @@ import { Trusttrail } from "../../target/types/trusttrail";
 import idl from "../../target/idl/trusttrail.json";
 import BN from "bn.js";
 
-process.loadEnvFile();
-
+try {
+    process.loadEnvFile();
+} catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+}
 const connection = new Connection("https://api.devnet.solana.com", "confirmed");
 const authoritySecret = new Uint8Array(JSON.parse(process.env.AUTHORITY_PRIVATE_KEY!));
 const authorityKeypair = Keypair.fromSecretKey(authoritySecret);
