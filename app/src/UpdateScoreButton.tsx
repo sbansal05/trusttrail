@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import bs58 from "bs58";
+import { BACKEND_URL } from "./config";
 
 const COOLDOWN_MS = 60_000; // 60 seconds between updates
 
@@ -34,7 +35,7 @@ export function UpdateScoreButton({ onUpdated }: { onUpdated: () => void }) {
             const signatureBytes = await signMessage(new TextEncoder().encode(message));
             const signature = bs58.encode(signatureBytes);
 
-            const res = await fetch(`http://localhost:3000/update-score/${walletAddress}`, {
+            const res = await fetch(`${BACKEND_URL}/update-score/${walletAddress}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ signature }),

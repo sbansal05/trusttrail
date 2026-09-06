@@ -10,7 +10,8 @@ import cors from "cors";
 import BN from "bn.js";
 import bs58 from "bs58";
 const app = express();
-app.use(cors({ origin: "http://localhost:5173" }));
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || "http://localhost:5173").split(",");
+app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
 
 const connection = new Connection("https://api.devnet.solana.com", "confirmed");

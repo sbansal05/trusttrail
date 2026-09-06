@@ -5,6 +5,7 @@ import { TrustTrailPath } from "./TrailPath";
 import { useUserReputation } from "./useUserReputation";
 import { UpdateScoreButton } from "./UpdateScoreButton";
 import { UserReputationCard } from "./UserReputationCard";
+import { BACKEND_URL } from "./config";
 
 type ScoreBreakDown = {
     total: number;
@@ -20,15 +21,10 @@ function App() {
     const { publicKey } = useWallet();
     const { reputation, loading, refetch } = useUserReputation();
     const [score, setScore] = useState<ScoreBreakDown | null>(null);
-    const [showDevTools, setShowDevTools] = useState(false);
-    const [result, setResult] = useState<string>("");
 
     async function checkScore() {
-        if (!publicKey) {
-            setResult("Connect your wallet first");
-            return;
-        }
-        const res = await fetch(`http://localhost:3000/score/${publicKey.toBase58()}`);
+        if (!publicKey) return;
+        const res = await fetch(`${BACKEND_URL}/score/${publicKey.toBase58()}`);
         const data = await res.json();
         setScore(data);
     }
@@ -161,28 +157,6 @@ function App() {
                         <UpdateScoreButton onUpdated={refetch} />
                     </div>
                 )}
-
-                <div style={{ marginTop: "3rem", textAlign: "center" }}>
-                    <button
-                        onClick={() => setShowDevTools(!showDevTools)}
-                        style={{
-                            fontSize: 11,
-                            color: "var(--tt-text-muted)",
-                            background: "none",
-                            border: "none",
-                            cursor: "pointer",
-                        }}
-                    >
-                        {showDevTools ? "Hide dev tools" : "Show dev tools"}
-                    </button>
-                    {showDevTools && (
-                        <div style={{ marginTop: 12 }}>
-                            <p style={{ fontSize: 12, color: "var(--tt-text-muted)", whiteSpace: "pre-wrap" }}>
-                                {result}
-                            </p>
-                        </div>
-                    )}
-                </div>
             </div>
         </div>
     );
