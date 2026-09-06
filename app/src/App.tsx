@@ -50,7 +50,7 @@ function App() {
                 <p
                     style={{
                         textAlign: "center",
-                        fontSize: 13,
+                        fontSize: 25,
                         color: "var(--tt-text-secondary)",
                         marginBottom: "2.5rem",
                     }}
@@ -69,9 +69,7 @@ function App() {
                                 margin: "0 auto 2rem",
                             }}
                         >
-                            Every major Solana lending protocol treats your wallet as an anonymous
-                            stranger with zero history — forcing over-collateralization no matter
-                            how long you've been using DeFi responsibly. TrustTrail turns your real
+                            TrustTrail turns your real
                             on-chain behavior into a portable score any protocol can trust.
                         </p>
                         <div
@@ -83,12 +81,7 @@ function App() {
                                 marginBottom: "2rem",
                             }}
                         >
-                            <div>
-                                <p style={{ fontFamily: "var(--tt-font-mono)", fontSize: 24, color: "var(--tt-accent)", margin: 0 }}>
-                                    35%
-                                </p>
-                                <p style={{ fontSize: 12, color: "var(--tt-text-muted)", margin: 0 }}>Repayment history</p>
-                            </div>
+                            
                             <div>
                                 <p style={{ fontFamily: "var(--tt-font-mono)", fontSize: 24, color: "var(--tt-accent)", margin: 0 }}>
                                     6
