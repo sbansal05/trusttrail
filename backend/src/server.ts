@@ -1,3 +1,4 @@
+process.loadEnvFile();
 import express from "express";
 import { calculateTrustScore } from "./heliusScore";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
@@ -8,7 +9,6 @@ import idl from "../../target/idl/trusttrail.json";
 import cors from "cors";
 import BN from "bn.js";
 import bs58 from "bs58";
-
 const app = express();
 app.use(cors({ origin: "http://localhost:5173" }));
 app.use(express.json());

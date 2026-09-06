@@ -44,7 +44,7 @@ A wallet that's never taken out a loan isn't scored as if it defaulted — it's 
 
 - **Kamino's instruction discriminators are computed, not read.** Its IDL predates Anchor's newer format and doesn't embed them directly — they're derived via `sha256("global:" + snake_case_name)`, using the original Rust function name, not the camelCase name the IDL displays for JS/TS convenience.
 - **Signature verification runs before any computation, not after.** An unsigned or forged request is rejected immediately, rather than after burning a full scoring computation against Helius.
-- **A single liquidation costs little; a pattern costs a lot.** The liquidation penalty escalates rather than applying a flat cost per event — one liquidation can plausibly be a single bad-luck market event, while several in a row is a real signal about risk management.
+- **A single liquidation costs little; a pattern costs a lot — but "never tested" isn't the same as "tested and clean."** The liquidation penalty escalates rather than applying a flat cost per event, since one liquidation can plausibly be a single bad-luck market event, while several in a row is a genuine risk-management signal. Just as importantly, a wallet that's never borrowed at all can't earn a perfect liquidation score by default — Repayment and Liquidation both apply the same thin-file gate, so a lack of history reads as "unproven," never as the best possible outcome for a factor with nothing real to measure.
 - **Every sub-score handles the empty-wallet case explicitly** — a brand-new wallet returns a real, valid low score rather than throwing, treating "no data yet" and "bad data" as genuinely different situations throughout.
 
 ## Running locally

@@ -1,3 +1,4 @@
+process.loadEnvFile();
 import { createHelius } from "helius-sdk";
 
 export const helius = createHelius({

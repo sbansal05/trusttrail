@@ -27,6 +27,7 @@ function computeDiscriminator(instructionName: string): string {
     return hash.subarray(0, 8).toString("hex");
 }
 
+
 function camelToSnake(name: string): string {
     return name.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
 }
@@ -75,6 +76,12 @@ export function computeRepaymentScore(counts: KaminoActionCounts): number {
 }
 
 export function computeLiquidationScore(counts: KaminoActionCounts): number {
+    
+    if (counts.borrow === 0) {
+        return NO_BORROW_HISTORY_SCORE;
+    }
+
+    
     let penalty = 0;
     for (let i = 1; i <= counts.liquidate; i++) {
         penalty += i * LIQUIDATION_BASE_PENALTY;
