@@ -5,7 +5,7 @@ import { getAllTransactions } from "./heliusClient";
 
 const KAMINO_PROGRAM_ID = "KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD";
 
-const NO_BORROW_HISTORY_SCORE = 200;
+const NO_BORROW_HISTORY_SCORE = 0;
 const LIQUIDATION_BASE_PENALTY = 100;
 
 const KAMINO_ACTION_MAP: Record<string, "borrow" | "repay" | "liquidate" | "collateral"> = {
