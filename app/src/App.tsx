@@ -59,11 +59,11 @@ function App() {
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "center",
-                        padding: "1.5rem 2rem",
+                        padding: "1.75rem 2rem",
                         borderBottom: "1px solid var(--tt-surface-line)",
                     }}
                 >
-                    <span style={{ fontFamily: "var(--tt-font-display)", fontSize: 32, fontWeight: 500 }}>
+                    <span style={{ fontFamily: "'Fraunces', serif", fontSize: 32, fontWeight: 500 }}>
                         TrustTrail
                     </span>
                     {publicKey && <WalletMultiButton />}
@@ -76,10 +76,10 @@ function App() {
                                 <p
                                     style={{
                                         fontFamily: "var(--tt-font-display)",
-                                        fontSize: 28,
+                                        fontSize: 30,
                                         fontWeight: 500,
                                         color: "var(--tt-text)",
-                                        margin: "0 0 10px",
+                                        margin: "0 0 18px",
                                     }}
                                 >
                                     On-chain reputation, verified across your history
@@ -87,7 +87,7 @@ function App() {
 
                                 <p
                                     style={{
-                                        fontSize: 14,
+                                        fontSize: 15,
                                         color: "var(--tt-text-secondary)",
                                         lineHeight: 1.6,
                                         margin: "0 0 28px",
@@ -108,7 +108,7 @@ function App() {
                                         <div
                                             key={name}
                                             style={{
-                                                border: "1px solid var(--tt-accent)",
+                                                border: "2px solid var(--tt-accent)",
                                                 borderRadius: 8,
                                                 padding: "8px 16px",
                                             }}
@@ -116,14 +116,14 @@ function App() {
                                             <p
                                                 style={{
                                                     fontFamily: "var(--tt-font-mono)",
-                                                    fontSize: 11,
+                                                    fontSize: 15,
                                                     color: "var(--tt-accent)",
                                                     margin: "0 0 2px",
                                                 }}
                                             >
                                                 {name}
                                             </p>
-                                            <p style={{ fontSize: 10, color: "var(--tt-text-secondary)", margin: 0 }}>
+                                            <p style={{ fontSize: 12, color: "var(--tt-text-secondary)", margin: 0 }}>
                                                 {range}
                                             </p>
                                         </div>
@@ -164,7 +164,7 @@ function App() {
                                                     margin: "0 auto 6px",
                                                 }}
                                             />
-                                            <p style={{ fontSize: 10, color: "var(--tt-text-secondary)", margin: "0 0 2px" }}>
+                                            <p style={{ fontSize: 12, color: "var(--tt-text-secondary)", margin: "0 0 2px" }}>
                                                 {label}
                                             </p>
                                             <p
