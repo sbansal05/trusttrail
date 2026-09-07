@@ -36,13 +36,21 @@ function App() {
     const { publicKey } = useWallet();
     const { reputation, loading, refetch } = useUserReputation();
     const [score, setScore] = useState<ScoreBreakDown | null>(null);
+    const [previewLoading, setPreviewLoading] = useState(false);
 
     async function checkScore() {
         if (!publicKey) return;
-        const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
-        const res = await fetch(`${BACKEND_URL}/score/${publicKey.toBase58()}`);
-        const data = await res.json();
-        setScore(data);
+        setPreviewLoading(true);
+        try {
+            const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
+            const res = await fetch(`${BACKEND_URL}/score/${publicKey.toBase58()}`);
+            const data = await res.json();
+            setScore(data);
+        } catch (err) {
+            console.error("Preview failed:", err);
+        } finally {
+            setPreviewLoading(false);
+        }
     }
 
     return (
@@ -108,7 +116,7 @@ function App() {
                                         <div
                                             key={name}
                                             style={{
-                                                border: "2px solid var(--tt-accent)",
+                                                border: "1px solid var(--tt-accent)",
                                                 borderRadius: 8,
                                                 padding: "8px 16px",
                                             }}
@@ -116,14 +124,14 @@ function App() {
                                             <p
                                                 style={{
                                                     fontFamily: "var(--tt-font-mono)",
-                                                    fontSize: 15,
+                                                    fontSize: 11,
                                                     color: "var(--tt-accent)",
                                                     margin: "0 0 2px",
                                                 }}
                                             >
                                                 {name}
                                             </p>
-                                            <p style={{ fontSize: 12, color: "var(--tt-text-secondary)", margin: 0 }}>
+                                            <p style={{ fontSize: 10, color: "var(--tt-text-secondary)", margin: 0 }}>
                                                 {range}
                                             </p>
                                         </div>
@@ -164,7 +172,7 @@ function App() {
                                                     margin: "0 auto 6px",
                                                 }}
                                             />
-                                            <p style={{ fontSize: 12, color: "var(--tt-text-secondary)", margin: "0 0 2px" }}>
+                                            <p style={{ fontSize: 10, color: "var(--tt-text-secondary)", margin: "0 0 2px" }}>
                                                 {label}
                                             </p>
                                             <p
@@ -186,7 +194,9 @@ function App() {
 
                     {publicKey && !score && (
                         <div style={{ textAlign: "center", marginBottom: "1rem" }}>
-                            <button onClick={checkScore}>Preview my score</button>
+                            <button onClick={checkScore} disabled={previewLoading}>
+                                {previewLoading ? "Loading..." : "Preview my score"}
+                            </button>
                         </div>
                     )}
 
