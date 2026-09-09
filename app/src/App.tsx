@@ -126,7 +126,12 @@ function App() {
                                 </p>
                             </div>
 
-                            
+                            {/* marginLeft: "auto" explicitly pins this column flush
+                                against the flex row's right edge, guaranteed —
+                                independent of exactly how the text column's flex
+                                math resolves. Same right edge as the Score
+                                Weighting box below, since both share the same
+                                2.5rem outer padding from this 900px parent. */}
                             <div
                                 style={{
                                     flex: "0 0 auto",
