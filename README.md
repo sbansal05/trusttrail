@@ -56,7 +56,7 @@ anchor build && anchor deploy --provider.cluster devnet
 # Backend
 cd backend
 npm install
-# .env needs: HELIUS_API, AUTHORITY_PRIVATE_KEY (see .env.example)
+# .env needs: HELIUS_API, AUTHORITY_PRIVATE_KEY 
 npx tsx src/server.ts
 
 # Frontend
