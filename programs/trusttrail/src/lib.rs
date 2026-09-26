@@ -18,6 +18,7 @@ pub mod trusttrail {
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
         crate::instructions::initialize::handle_initialize(ctx)
     }
+    
 
     pub fn update_score(
         ctx: Context<UpdateScore>,
@@ -27,6 +28,9 @@ pub mod trusttrail {
 
     ) -> Result<()> {
         crate::instructions::initialize::handle_update_score(ctx, new_score, mask, new_flags)
+    }
+    pub fn init_score_v2(ctx: Context<InitScoreV2>) -> Result<()> {
+        crate::instructions::init_score_v2::handle_init_score_v2(ctx)
     }
 
     
