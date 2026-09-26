@@ -67,7 +67,7 @@ fn init_creates_unproven_account() {
     assert!(send_init(&mut svm, &payer, wallet));
 
     let account = svm.get_account(&reputation_pda(&wallet)).unwrap();
-    assert_eq!(account.data.len(), 8 + 80); 
+    assert_eq!(account.data.len(), 8 + 122); 
     let mut data: &[u8] = &account.data;
     let rep = trusttrail::state::UserReputationV2::try_deserialize(&mut data).unwrap();
     assert_eq!(rep.wallet, wallet);
