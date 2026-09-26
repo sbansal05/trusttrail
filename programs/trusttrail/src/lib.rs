@@ -2,7 +2,7 @@ pub mod constants;
 pub mod error;
 pub mod instructions;
 pub mod state;
-
+pub mod scoring;
 use anchor_lang::prelude::*;
 
 pub use constants::*;

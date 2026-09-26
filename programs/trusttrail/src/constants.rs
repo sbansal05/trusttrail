@@ -35,3 +35,36 @@ pub const OUTCOME_ON_TIME: u8 = 0;
 pub const OUTCOME_LATE: u8 = 1;
 pub const OUTCOME_LIQUIDATED: u8 = 2;
 pub const OUTCOME_DEFAULTED: u8 = 3;
+
+
+
+/// Seed for the new score PDA ["trust-v2", wallet]. v1 ("trust-v1") stays untouched.
+#[constant]
+pub const USER_REPUTATION_V2_SEED: &[u8] = b"trust-v2";
+
+pub const TIER_UNPROVEN: u8 = 0;
+pub const TIER_BRONZE: u8 = 1;
+pub const TIER_SILVER: u8 = 2;
+pub const TIER_GOLD: u8 = 3;
+
+pub const SILVER_MIN_SCORE: u16 = 500;
+pub const GOLD_MIN_SCORE: u16 = 750;
+
+pub const SILVER_MIN_ON_TIME: u16 = 3;
+pub const GOLD_MIN_ON_TIME: u16 = 8;
+
+/// After a liquidation, Silver/Gold are blocked for 90 days.
+/// i64 because it's compared against (now - last_liquidation_at), both i64 timestamps.
+pub const LIQUIDATION_COOLDOWN_SECS: i64 = 90 * 86_400;
+
+/// After this many counted native loans, the score is 100% native (0% imported).
+pub const NATIVE_FULL_WEIGHT_LOANS: u16 = 8;
+
+// --- Still deciding: change these two later ---
+
+/// Anti-farming: minimum interest paid for a loan to count toward tiers.
+/// USDC has 6 decimals → 100_000 = 0.10 USDC.   PLACEHOLDER
+pub const MIN_INTEREST_TO_COUNT_USDC: u64 = 100_000;
+
+/// Points (out of 1000) taken off the native score per liquidation.   PLACEHOLDER
+pub const LIQUIDATION_PENALTY: u16 = 150;
