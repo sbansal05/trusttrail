@@ -48,18 +48,25 @@ pub fn duration_bps(opened_at: i64, closed_at: i64) -> u64 {
 /// On time adds w·D to S⁺, late adds w·D·0.5 to S⁺, liquidated adds 2·w to S⁻,
 /// defaulted adds 3·w to S⁻. R is 1 because our pool only accepts full repayment.
 /// An unknown outcome contributes nothing.
-pub fn loan_contribution_bps(principal_usdc: u64, opened_at: i64, closed_at: i64, outcome: u8) -> (u64, u64) {
+/// A loan without a due date gets half the positive contribution; penalties are unchanged.
+pub fn loan_contribution_bps(principal_usdc: u64, opened_at: i64, closed_at: i64, due_at: i64, outcome: u8) -> (u64, u64) {
     let w = principal_weight_bps(principal_usdc);
     match outcome {
         OUTCOME_ON_TIME | OUTCOME_LATE => {
             let o = if outcome == OUTCOME_ON_TIME { O_ON_TIME_BPS } else { O_LATE_BPS };
             let d = duration_bps(opened_at, closed_at);
-            (w * d / BPS * o / BPS, 0)
+            (w * d / BPS * o / BPS * due_date_factor_bps(due_at) / BPS, 0)
         }
         OUTCOME_LIQUIDATED => (0, w * O_LIQUIDATED_BPS / BPS),
         OUTCOME_DEFAULTED => (0, w * O_DEFAULTED_BPS / BPS),
         _ => (0, 0),
     }
+}
+/// Due-date weighting (mentor decision, 2 : 1): a loan with a due date proves on-time
+/// discipline and counts 1.0; a loan without one (floating-rate DeFi) counts 0.5.
+/// `due_at` = 0 means no due date, as in the SAS schema.
+pub fn due_date_factor_bps(due_at: i64) -> u64 {
+    if due_at != 0 { DUE_DATE_FACTOR_BPS } else { NO_DUE_DATE_FACTOR_BPS }
 }
 
 /// value × 0.5^((now − from) / 90 days), integers only.
@@ -265,15 +272,20 @@ mod tests {
     #[test]
     fn k_contribution() {
         let day = T0 + 24 * H;
-        assert_eq!(loan_contribution_bps(usd(740), T0, day, OUTCOME_ON_TIME), (10_000, 0));
-        assert_eq!(loan_contribution_bps(usd(740), T0, T0 + 12 * H, OUTCOME_ON_TIME), (5_000, 0));
-        assert_eq!(loan_contribution_bps(usd(740), T0, day, OUTCOME_LATE), (5_000, 0));
-        assert_eq!(loan_contribution_bps(usd(150), T0, day, OUTCOME_ON_TIME), (2_026, 0));
-        assert_eq!(loan_contribution_bps(usd(740), T0, T0 + H, OUTCOME_LIQUIDATED), (0, 20_000));
-        assert_eq!(loan_contribution_bps(usd(740), T0, day, OUTCOME_DEFAULTED), (0, 30_000));
-        assert_eq!(loan_contribution_bps(usd(200_000), T0, day, OUTCOME_ON_TIME), (11_000, 0));
-        assert_eq!(loan_contribution_bps(usd(10), T0, day, OUTCOME_ON_TIME), (0, 0));
-        assert_eq!(loan_contribution_bps(usd(740), T0, day, 9), (0, 0));
+        const DUE: i64 = T0 + 30 * 24 * H;
+        assert_eq!(loan_contribution_bps(usd(740), T0, day, DUE, OUTCOME_ON_TIME), (10_000, 0));
+        assert_eq!(loan_contribution_bps(usd(740), T0, T0 + 12 * H, DUE, OUTCOME_ON_TIME), (5_000, 0));
+        assert_eq!(loan_contribution_bps(usd(740), T0, day, DUE, OUTCOME_LATE), (5_000, 0));
+        assert_eq!(loan_contribution_bps(usd(150), T0, day, DUE, OUTCOME_ON_TIME), (2_026, 0));
+        assert_eq!(loan_contribution_bps(usd(740), T0, T0 + H, DUE, OUTCOME_LIQUIDATED), (0, 20_000));
+        assert_eq!(loan_contribution_bps(usd(740), T0, day, DUE, OUTCOME_DEFAULTED), (0, 30_000));
+        assert_eq!(loan_contribution_bps(usd(200_000), T0, day, DUE, OUTCOME_ON_TIME), (11_000, 0));
+        assert_eq!(loan_contribution_bps(usd(10), T0, day, DUE, OUTCOME_ON_TIME), (0, 0));
+        assert_eq!(loan_contribution_bps(usd(740), T0, day, DUE, 9), (0, 0));
+        assert_eq!(loan_contribution_bps(usd(740), T0, day, 0, OUTCOME_ON_TIME), (5_000, 0));
+        assert_eq!(loan_contribution_bps(usd(740), T0, day, 0, OUTCOME_LIQUIDATED), (0, 20_000));
+        assert_eq!(due_date_factor_bps(DUE), 10_000);
+        assert_eq!(due_date_factor_bps(0), 5_000);
     }
 
     #[test]

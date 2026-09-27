@@ -94,6 +94,8 @@ pub const HALF_STEP_TABLE: [u64; 9] = [10_000, 9_170, 8_409, 7_711, 7_071, 6_484
 /// "8 median loans' worth": the cap on S⁺, the score divisor, and the E where α = 1.
 pub const FULL_WEIGHT_BPS: u64 = 80_000;
 pub const SCORE_MAX: u64 = 1_000;
-
+/// Due-date weighting. A loan with a due date counts 1.0; without one, 0.5.
+pub const DUE_DATE_FACTOR_BPS: u64 = 10_000;
+pub const NO_DUE_DATE_FACTOR_BPS: u64 = 5_000;
 pub const SILVER_MIN_WEIGHT_BPS: u64 = 30_000; 
 pub const GOLD_MIN_WEIGHT_BPS: u64 = 80_000;   
