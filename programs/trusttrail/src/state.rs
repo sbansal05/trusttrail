@@ -38,3 +38,12 @@ pub struct UserReputationV2 {
     pub meaningful_weight_bps: u64, // Σw for the 3.0 / 8.0 gates
     pub bump: u8,
 }
+
+#[account]
+#[derive(InitSpace)]
+
+pub struct WriterWhitelist {
+    #[max_len(10)]
+    pub signers: Vec<Pubkey>,
+    pub bump: u8,
+}

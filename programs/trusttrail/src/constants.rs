@@ -9,6 +9,8 @@ pub const HELLO_WORLD_LAMPORTS: u64 = 1;
 #[constant]
 pub const USER_REPUTATION_SEED: &[u8] = b"trust-v1";
 
+#[constant]
+pub const USER_REPUTATION_V2_SEED: &[u8] = b"trust-v2";
 
 /// The SAS program. Same address on devnet and mainnet.
 pub const SAS_PROGRAM_ID: Pubkey = pubkey!("22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG");
@@ -34,11 +36,6 @@ pub const OUTCOME_LIQUIDATED: u8 = 2;
 pub const OUTCOME_DEFAULTED: u8 = 3;
 
 
-
-/// Seed for the score PDA ["trust-v2", wallet]. v1 ("trust-v1") stays untouched.
-#[constant]
-pub const USER_REPUTATION_V2_SEED: &[u8] = b"trust-v2";
-
 // Tier codes (UserReputationV2.tier and the attestation's tier_at_open)
 pub const TIER_UNPROVEN: u8 = 0;
 pub const TIER_BRONZE: u8 = 1;
@@ -55,6 +52,10 @@ pub const GOLD_MIN_ON_TIME: u16 = 8;
 /// After a liquidation, Silver/Gold are blocked for 90 days.
 pub const LIQUIDATION_COOLDOWN_SECS: i64 = 90 * 86_400;
 
+#[constant]
+pub const WRITER_WHITELIST_SEED: &[u8] = b"writer_whitelist";
+
+pub const MAX_WRITERS: usize = 10;
 
 
 pub const BPS: u64 = 10_000;             

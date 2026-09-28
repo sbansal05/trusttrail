@@ -33,5 +33,18 @@ pub mod trusttrail {
         crate::instructions::init_score_v2::handle_init_score_v2(ctx)
     }
 
+    pub fn init_writer_whitelist(ctx: Context<InitWriterWhitelist>) -> Result<()> {
+        crate::instructions::handle_init_writer_whitelist(ctx)
+    }
+
+    pub fn add_writer(
+        ctx: Context<AddWriter>,
+        writer: Pubkey
+    ) -> Result<()> {
+        crate::instructions::handle_add_writer(ctx, writer)
+    }
+
+
+
     
 }
