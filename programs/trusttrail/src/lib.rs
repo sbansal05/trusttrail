@@ -44,6 +44,16 @@ pub mod trusttrail {
         crate::instructions::handle_add_writer(ctx, writer)
     }
 
+    pub fn record_event(
+        ctx: Context<RecordEvent>,
+        principal_usdc: u64,
+        opened_at: i64,
+        due_at: i64,
+        outcome: u8,
+    ) -> Result<()> {
+        crate::instructions::handle_record_event(ctx, principal_usdc, opened_at, due_at, outcome)
+    }
+
 
 
     
