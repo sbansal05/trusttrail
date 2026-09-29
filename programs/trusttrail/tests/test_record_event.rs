@@ -9,7 +9,7 @@ use {
     solana_message::{Message, VersionedMessage},
     solana_signer::Signer,
     solana_transaction::versioned::VersionedTransaction,
-    trusttrail::constants::*,
+    trusttrail::{constants::*},
 };
 use solana_account::Account;
 
@@ -128,6 +128,15 @@ fn load_sas(svm: &mut LiteSVM) {
         .unwrap();
     }
 }
+
+fn attestation_pda(loan: Pubkey) -> Pubkey {
+    let (attestation, _) = Pubkey::find_program_address(
+        &[b"attestation", SAS_CREDENTIAL.as_ref(), SAS_REPAYMENT_SCHEMA.as_ref(), loan.as_ref()],
+        &SAS_PROGRAM_ID,
+    );
+    return attestation
+
+}
 fn record_ix(
     writer: Pubkey,
     wallet: Pubkey,
@@ -137,10 +146,8 @@ fn record_ix(
     due_at: i64,
     outcome: u8,
 ) -> Instruction {
-    let (attestation, _) = Pubkey::find_program_address(
-        &[b"attestation", SAS_CREDENTIAL.as_ref(), SAS_REPAYMENT_SCHEMA.as_ref(), loan.as_ref()],
-        &SAS_PROGRAM_ID,
-    );
+    
+    let attestation = attestation_pda(loan);
 
     Instruction::new_with_bytes(
         trusttrail::id(),
@@ -277,4 +284,43 @@ fn invalid_outcome_is_rejected() {
     let ix = record_ix(writer.pubkey(), wallet,Pubkey::new_unique() ,740 * USDC_UNIT, T0, T0 + 30 * DAY, 4);
     assert!(!send(&mut svm, &writer, ix));
     assert_eq!(read_rep(&svm, wallet).exposure_bps, 0);
+}
+
+#[test]
+fn attestation_is_created_with_our_record() {
+    let (mut svm, _admin, writer, wallet) = setup();
+    let now = T0 + 2 * DAY;
+    set_clock(&mut svm, now);
+    let loan = Pubkey::new_unique();
+
+    let ix = record_ix(writer.pubkey(), wallet, loan, 740 * USDC_UNIT, T0, T0 + 30 * DAY, OUTCOME_ON_TIME);
+    assert!(send(&mut svm, &writer, ix));
+
+    let account = svm.get_account(&attestation_pda(loan)).unwrap();
+
+    assert_eq!(account.owner, SAS_PROGRAM_ID);
+
+
+    let expected = trusttrail::attestation::encode_repayment(
+        &wallet, &writer.pubkey(), 740 * USDC_UNIT, 5_000_000, T0, T0 + 30 * DAY, now, OUTCOME_ON_TIME, 13_000, 0,
+    );
+
+    
+    assert!(account.data.windows(expected.len()).any(|w| w == expected.as_slice()));
+}
+
+#[test]
+fn same_loan_cannot_be_recorded_twice() {
+    let (mut svm, _admin, writer, wallet) = setup();
+    set_clock(&mut svm, T0 + 2 * DAY);
+    let loan = Pubkey::new_unique();
+
+    let ix = record_ix(writer.pubkey(), wallet, loan, 740 * USDC_UNIT, T0, T0 + 30 * DAY, OUTCOME_ON_TIME);
+    assert!(send(&mut svm, &writer, ix));
+
+    let ix = record_ix(writer.pubkey(), wallet, loan, 740 * USDC_UNIT, T0, T0 + 30 * DAY, OUTCOME_ON_TIME);
+    assert!(!send(&mut svm, &writer, ix));
+
+    
+    assert_eq!(read_rep(&svm, wallet).s_plus_bps, 10_000);
 }
