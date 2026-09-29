@@ -8,6 +8,226 @@
   },
   "instructions": [
     {
+      "name": "add_writer",
+      "discriminator": [
+        95,
+        14,
+        80,
+        179,
+        133,
+        216,
+        154,
+        108
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "global_config"
+          ]
+        },
+        {
+          "name": "global_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "whitelist",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  119,
+                  114,
+                  105,
+                  116,
+                  101,
+                  114,
+                  95,
+                  119,
+                  104,
+                  105,
+                  116,
+                  101,
+                  108,
+                  105,
+                  115,
+                  116
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "writer",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "init_score_v2",
+      "discriminator": [
+        90,
+        1,
+        94,
+        86,
+        137,
+        30,
+        186,
+        156
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "docs": [
+            "Pays rent for the new account (the borrower, or the pool on first borrow)."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "wallet"
+        },
+        {
+          "name": "reputation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  117,
+                  115,
+                  116,
+                  45,
+                  118,
+                  50
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "wallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "init_writer_whitelist",
+      "discriminator": [
+        87,
+        247,
+        19,
+        144,
+        156,
+        160,
+        101,
+        163
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_config"
+          ]
+        },
+        {
+          "name": "global_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "whitelist",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  119,
+                  114,
+                  105,
+                  116,
+                  101,
+                  114,
+                  95,
+                  119,
+                  104,
+                  105,
+                  116,
+                  101,
+                  108,
+                  105,
+                  115,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "initialize",
       "discriminator": [
         175,
@@ -57,6 +277,162 @@
         }
       ],
       "args": []
+    },
+    {
+      "name": "record_event",
+      "discriminator": [
+        32,
+        2,
+        109,
+        205,
+        6,
+        116,
+        72,
+        229
+      ],
+      "accounts": [
+        {
+          "name": "writer",
+          "signer": true
+        },
+        {
+          "name": "whitelist",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  119,
+                  114,
+                  105,
+                  116,
+                  101,
+                  114,
+                  95,
+                  119,
+                  104,
+                  105,
+                  116,
+                  101,
+                  108,
+                  105,
+                  115,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "wallet"
+        },
+        {
+          "name": "reputation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  117,
+                  115,
+                  116,
+                  45,
+                  118,
+                  50
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "wallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "sas_signer",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  97,
+                  115,
+                  45,
+                  115,
+                  105,
+                  103,
+                  110,
+                  101,
+                  114
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "credential",
+          "address": "HqhwM4J9UoJBq2HGBPn32QN1y7gkASPdX5nxBLCY5sje"
+        },
+        {
+          "name": "schema",
+          "address": "3q96PNm9Dv6wiR6ZkmJJDm9uUQZUKvqPH8su9Born1A9"
+        },
+        {
+          "name": "attestation",
+          "writable": true
+        },
+        {
+          "name": "sas_program",
+          "address": "22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "principal_usdc",
+          "type": "u64"
+        },
+        {
+          "name": "opened_at",
+          "type": "i64"
+        },
+        {
+          "name": "due_at",
+          "type": "i64"
+        },
+        {
+          "name": "outcome",
+          "type": "u8"
+        },
+        {
+          "name": "loan",
+          "type": "pubkey"
+        },
+        {
+          "name": "interest_paid_usdc",
+          "type": "u64"
+        },
+        {
+          "name": "collateral_ratio_bps",
+          "type": "u16"
+        },
+        {
+          "name": "tier_at_open",
+          "type": "u8"
+        }
+      ]
     },
     {
       "name": "update_score",
@@ -176,6 +552,32 @@
         207,
         37
       ]
+    },
+    {
+      "name": "UserReputationV2",
+      "discriminator": [
+        68,
+        237,
+        128,
+        106,
+        198,
+        158,
+        236,
+        215
+      ]
+    },
+    {
+      "name": "WriterWhitelist",
+      "discriminator": [
+        73,
+        117,
+        176,
+        122,
+        124,
+        73,
+        69,
+        210
+      ]
     }
   ],
   "errors": [
@@ -188,6 +590,26 @@
       "code": 6001,
       "name": "CounterOverflow",
       "msg": "Counter has reached the maximum value"
+    },
+    {
+      "code": 6002,
+      "name": "WriterWhiteListOverflow",
+      "msg": "The white_writer list is full"
+    },
+    {
+      "code": 6003,
+      "name": "NameAlreadyInWhiteWriterList",
+      "msg": "The name already exists in white writer's list"
+    },
+    {
+      "code": 6004,
+      "name": "SignerNotApproved",
+      "msg": "The signer is not an approved writer"
+    },
+    {
+      "code": 6005,
+      "name": "InvalidOutcome",
+      "msg": "Outcome must be 0: on time, 1: late, 2: liquidated, 3: defaulted"
     }
   ],
   "types": [
@@ -230,6 +652,112 @@
           }
         ]
       }
+    },
+    {
+      "name": "UserReputationV2",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "score",
+            "type": "u16"
+          },
+          {
+            "name": "native_score",
+            "type": "u16"
+          },
+          {
+            "name": "imported_score",
+            "type": "u16"
+          },
+          {
+            "name": "import_date",
+            "type": "i64"
+          },
+          {
+            "name": "tier",
+            "type": "u8"
+          },
+          {
+            "name": "loans_repaid_on_time",
+            "type": "u16"
+          },
+          {
+            "name": "late_repaid_loans",
+            "type": "u16"
+          },
+          {
+            "name": "liquidated_loans",
+            "type": "u16"
+          },
+          {
+            "name": "current_on_time_streak",
+            "type": "u16"
+          },
+          {
+            "name": "last_liquidation_date",
+            "type": "i64"
+          },
+          {
+            "name": "total_usdc_repaid",
+            "type": "u64"
+          },
+          {
+            "name": "last_update",
+            "type": "i64"
+          },
+          {
+            "name": "s_plus_bps",
+            "type": "u64"
+          },
+          {
+            "name": "s_minus_bps",
+            "type": "u64"
+          },
+          {
+            "name": "s_minus_at",
+            "type": "i64"
+          },
+          {
+            "name": "exposure_bps",
+            "type": "u64"
+          },
+          {
+            "name": "meaningful_on_time",
+            "type": "u16"
+          },
+          {
+            "name": "meaningful_weight_bps",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "WriterWhitelist",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "signers",
+            "type": {
+              "vec": "pubkey"
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
     }
   ],
   "constants": [
@@ -244,9 +772,28 @@
       "value": "1"
     },
     {
+      "name": "SAS_SIGNER_SEED",
+      "docs": [
+        "Seed for our PDA [\"sas-signer\"], the only authorized signer on our credential.",
+        "MUST match SAS_SIGNER_SEED in scripts/sas/setup-sas.ts."
+      ],
+      "type": "bytes",
+      "value": "[115, 97, 115, 45, 115, 105, 103, 110, 101, 114]"
+    },
+    {
       "name": "USER_REPUTATION_SEED",
       "type": "bytes",
       "value": "[116, 114, 117, 115, 116, 45, 118, 49]"
+    },
+    {
+      "name": "USER_REPUTATION_V2_SEED",
+      "type": "bytes",
+      "value": "[116, 114, 117, 115, 116, 45, 118, 50]"
+    },
+    {
+      "name": "WRITER_WHITELIST_SEED",
+      "type": "bytes",
+      "value": "[119, 114, 105, 116, 101, 114, 95, 119, 104, 105, 116, 101, 108, 105, 115, 116]"
     }
   ]
 }
