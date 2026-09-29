@@ -3,6 +3,7 @@ pub mod error;
 pub mod instructions;
 pub mod state;
 pub mod scoring;
+pub mod attestation;
 use anchor_lang::prelude::*;
 
 pub use constants::*;
@@ -50,8 +51,12 @@ pub mod trusttrail {
         opened_at: i64,
         due_at: i64,
         outcome: u8,
+        loan: Pubkey,
+        interest_paid_usdc: u64,
+        collateral_ratio_bps: u16,
+        tier_at_open: u8,
     ) -> Result<()> {
-        crate::instructions::handle_record_event(ctx, principal_usdc, opened_at, due_at, outcome)
+        crate::instructions::handle_record_event(ctx, principal_usdc, opened_at, due_at, outcome, loan, interest_paid_usdc, collateral_ratio_bps, tier_at_open)
     }
 
 
