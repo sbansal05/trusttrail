@@ -146,7 +146,7 @@ pub fn handle_record_event(
             AccountMeta::new_readonly(a.credential.key(), false),
             AccountMeta::new_readonly(a.schema.key(), false),
             AccountMeta::new(a.attestation.key(), false),
-            AccountMeta::new(a.system_program.key(), false),
+            AccountMeta::new_readonly(a.system_program.key(), false),
         ],
         data: ix_data,
     };

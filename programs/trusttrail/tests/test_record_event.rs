@@ -11,6 +11,7 @@ use {
     solana_transaction::versioned::VersionedTransaction,
     trusttrail::constants::*,
 };
+use solana_account::Account;
 
 const DAY: i64 = 86_400;
 const T0: i64 = 1_800_000_000;
@@ -58,6 +59,7 @@ fn setup() -> (LiteSVM, Keypair, Keypair, Pubkey) {
     svm.airdrop(&admin.pubkey(), 1_000_000_000).unwrap();
     svm.airdrop(&writer.pubkey(), 1_000_000_000).unwrap();
     set_clock(&mut svm, T0);
+    load_sas(&mut svm);
 
     let ix = Instruction::new_with_bytes(
         program_id,
@@ -103,16 +105,68 @@ fn setup() -> (LiteSVM, Keypair, Keypair, Pubkey) {
 
     (svm, admin, writer, wallet)
 }
+fn load_sas(svm: &mut LiteSVM) {
+    
+    svm.add_program_from_file(SAS_PROGRAM_ID, "tests/fixtures/sas.so").unwrap();
 
-fn record_ix(writer: Pubkey, wallet: Pubkey, principal_usdc: u64, opened_at: i64, due_at: i64, outcome: u8) -> Instruction {
+    for (key, file) in [
+        (SAS_CREDENTIAL, "tests/fixtures/credential.bin"),
+        (SAS_REPAYMENT_SCHEMA, "tests/fixtures/schema.bin"),
+    ] {
+        let data = std::fs::read(file).unwrap();
+        let lamports = svm.minimum_balance_for_rent_exemption(data.len());
+        svm.set_account(
+            key,
+            Account {
+                lamports,
+                data,
+                owner: SAS_PROGRAM_ID,          
+                executable: false,
+                rent_epoch: 0,
+            },
+        )
+        .unwrap();
+    }
+}
+fn record_ix(
+    writer: Pubkey,
+    wallet: Pubkey,
+    loan: Pubkey,                // NAYA
+    principal_usdc: u64,
+    opened_at: i64,
+    due_at: i64,
+    outcome: u8,
+) -> Instruction {
+    let (attestation, _) = Pubkey::find_program_address(
+        &[b"attestation", SAS_CREDENTIAL.as_ref(), SAS_REPAYMENT_SCHEMA.as_ref(), loan.as_ref()],
+        &SAS_PROGRAM_ID,
+    );
+
     Instruction::new_with_bytes(
         trusttrail::id(),
-        &trusttrail::instruction::RecordEvent { principal_usdc, opened_at, due_at, outcome }.data(),
+        &trusttrail::instruction::RecordEvent {
+            principal_usdc,
+            opened_at,
+            due_at,
+            outcome,
+            loan,
+            interest_paid_usdc: 5_000_000,   
+            collateral_ratio_bps: 13_000,
+            tier_at_open: 0,
+        }
+        .data(),
         trusttrail::accounts::RecordEvent {
             writer,
             whitelist: pda(&[WRITER_WHITELIST_SEED]),
             wallet,
             reputation: pda(&[USER_REPUTATION_V2_SEED, wallet.as_ref()]),
+            payer: writer,
+            sas_signer: pda(&[SAS_SIGNER_SEED]),               
+            credential: SAS_CREDENTIAL,
+            schema: SAS_REPAYMENT_SCHEMA,
+            attestation,
+            sas_program: SAS_PROGRAM_ID,
+            system_program: system_program::ID,                   
         }
         .to_account_metas(None),
     )
@@ -129,7 +183,7 @@ fn on_time_median_loan_updates_every_total() {
     let (mut svm, _admin, writer, wallet) = setup();
     set_clock(&mut svm, T0 + 2 * DAY);
 
-    let ix = record_ix(writer.pubkey(), wallet, 740 * USDC_UNIT, T0, T0 + 30 * DAY, OUTCOME_ON_TIME);
+    let ix = record_ix(writer.pubkey(), wallet,Pubkey::new_unique() ,740 * USDC_UNIT, T0, T0 + 30 * DAY, OUTCOME_ON_TIME);
     assert!(send(&mut svm, &writer, ix));
 
     let rep = read_rep(&svm, wallet);
@@ -153,7 +207,7 @@ fn eight_median_loans_reach_gold() {
     for i in 0..8 {
         let opened = T0 + i * 3 * DAY;
         set_clock(&mut svm, opened + 2 * DAY);
-        let ix = record_ix(writer.pubkey(), wallet, 740 * USDC_UNIT, opened, opened + 30 * DAY, OUTCOME_ON_TIME);
+        let ix = record_ix(writer.pubkey(), wallet,Pubkey::new_unique() ,740 * USDC_UNIT, opened, opened + 30 * DAY, OUTCOME_ON_TIME);
         assert!(send(&mut svm, &writer, ix));
     }
     let rep = read_rep(&svm, wallet);
@@ -168,12 +222,12 @@ fn liquidation_adds_penalty_and_blocks_tiers() {
     for i in 0..8 {
         let opened = T0 + i * 3 * DAY;
         set_clock(&mut svm, opened + 2 * DAY);
-        let ix = record_ix(writer.pubkey(), wallet, 740 * USDC_UNIT, opened, opened + 30 * DAY, OUTCOME_ON_TIME);
+        let ix = record_ix(writer.pubkey(), wallet,Pubkey::new_unique() ,740 * USDC_UNIT, opened, opened + 30 * DAY, OUTCOME_ON_TIME);
         assert!(send(&mut svm, &writer, ix));
     }
     let liq_time = T0 + 40 * DAY;
     set_clock(&mut svm, liq_time);
-    let ix = record_ix(writer.pubkey(), wallet, 740 * USDC_UNIT, liq_time - DAY, liq_time + 29 * DAY, OUTCOME_LIQUIDATED);
+    let ix = record_ix(writer.pubkey(), wallet,Pubkey::new_unique() ,740 * USDC_UNIT, liq_time - DAY, liq_time + 29 * DAY, OUTCOME_LIQUIDATED);
     assert!(send(&mut svm, &writer, ix));
 
     let rep = read_rep(&svm, wallet);
@@ -189,13 +243,13 @@ fn liquidation_adds_penalty_and_blocks_tiers() {
 fn penalty_decays_on_next_record() {
     let (mut svm, _admin, writer, wallet) = setup();
     set_clock(&mut svm, T0 + DAY);
-    let ix = record_ix(writer.pubkey(), wallet, 740 * USDC_UNIT, T0, T0 + 30 * DAY, OUTCOME_LIQUIDATED);
+    let ix = record_ix(writer.pubkey(), wallet,Pubkey::new_unique() ,740 * USDC_UNIT, T0, T0 + 30 * DAY, OUTCOME_LIQUIDATED);
     assert!(send(&mut svm, &writer, ix));
     assert_eq!(read_rep(&svm, wallet).s_minus_bps, 20_000);
 
     let later = T0 + DAY + 90 * DAY;
     set_clock(&mut svm, later);
-    let ix = record_ix(writer.pubkey(), wallet, 740 * USDC_UNIT, later - 2 * DAY, later + 28 * DAY, OUTCOME_ON_TIME);
+    let ix = record_ix(writer.pubkey(), wallet,Pubkey::new_unique() ,740 * USDC_UNIT, later - 2 * DAY, later + 28 * DAY, OUTCOME_ON_TIME);
     assert!(send(&mut svm, &writer, ix));
 
     let rep = read_rep(&svm, wallet);
@@ -210,7 +264,7 @@ fn writer_not_on_whitelist_is_rejected() {
     svm.airdrop(&attacker.pubkey(), 1_000_000_000).unwrap();
     set_clock(&mut svm, T0 + 2 * DAY);
 
-    let ix = record_ix(attacker.pubkey(), wallet, 740 * USDC_UNIT, T0, T0 + 30 * DAY, OUTCOME_ON_TIME);
+    let ix = record_ix(attacker.pubkey(), wallet,Pubkey::new_unique() ,740 * USDC_UNIT, T0, T0 + 30 * DAY, OUTCOME_ON_TIME);
     assert!(!send(&mut svm, &attacker, ix));
     assert_eq!(read_rep(&svm, wallet).s_plus_bps, 0);
 }
@@ -220,7 +274,7 @@ fn invalid_outcome_is_rejected() {
     let (mut svm, _admin, writer, wallet) = setup();
     set_clock(&mut svm, T0 + 2 * DAY);
 
-    let ix = record_ix(writer.pubkey(), wallet, 740 * USDC_UNIT, T0, T0 + 30 * DAY, 4);
+    let ix = record_ix(writer.pubkey(), wallet,Pubkey::new_unique() ,740 * USDC_UNIT, T0, T0 + 30 * DAY, 4);
     assert!(!send(&mut svm, &writer, ix));
     assert_eq!(read_rep(&svm, wallet).exposure_bps, 0);
 }
