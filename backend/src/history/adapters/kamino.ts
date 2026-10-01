@@ -2,7 +2,7 @@ import bs58 from "bs58";
 import { CreditEvent } from "../types";
 import { KAMINO_PROGRAM_ID, getInstructionName } from "../../getObligations";
 import { TransactionList } from "../../heliusClient";
-
+import { getAllTransactions } from "../../heliusClient";
 type Layout = { kind: CreditEvent["kind"]; mintIndex: number };
 
 /** Account positions from the klend IDL. The obligation is always account 1. */
@@ -69,4 +69,26 @@ function mintDecimals(meta: any, mint: string): number {
     const all = [...(meta?.preTokenBalances ?? []), ...(meta?.postTokenBalances ?? [])];
     const hit = all.find((b: any) => b.mint === mint);
     return hit ? hit.uiTokenAmount.decimals : 6;
+}
+
+export async function kaminoHistory(wallet: string): Promise<CreditEvent[]> {
+    const events = kaminoEvents(wallet, await getAllTransactions(wallet));
+
+    const positions = new Set(events.map(e => e.position));
+
+    for (const position of positions) {
+        const txns = await getAllTransactions(position);
+        const liquidations = kaminoEvents(wallet, txns).filter(e => e.kind === "liquidation");
+        events.push(...liquidations);
+    }
+
+    const seen = new Set<string>();
+    return events.filter((e) => {
+        const key = `${e.signature}:${e.kind}:${e.mint}:${e.amount}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    })
+
+
 }
