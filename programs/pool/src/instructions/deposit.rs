@@ -7,7 +7,7 @@ use anchor_spl::token::{self, Mint, MintTo, Token, TokenAccount, Transfer};
 pub struct Deposit<'info> {
     pub lender: Signer<'info>,
 
-    #[account(seeds = [POOL_SEED], bump = pool.bump, has_one = vault, has_one = lp_mint)]
+    #[account(mut, seeds = [POOL_SEED], bump = pool.bump, has_one = vault, has_one = lp_mint)]
     pub pool: Account<'info, PoolConfig>,
 
     #[account(mut)]
@@ -29,6 +29,7 @@ pub struct Deposit<'info> {
 
 pub fn handle_deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
     require!(amount > 0, PoolError::ZeroAmount);
+    ctx.accounts.pool.accrue_now(ctx.accounts.vault.amount)?;
     let a = &ctx.accounts;
 
     let total_assets = a.pool.total_assets(a.vault.amount).ok_or(PoolError::MathOverflow)?;

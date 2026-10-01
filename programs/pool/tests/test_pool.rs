@@ -194,3 +194,29 @@ fn zero_deposit_is_rejected() {
     let ix = deposit_ix(&env, &l, 0);
     assert!(!send(&mut env.svm, &l.kp, ix));
 }
+#[test]
+fn accrue_interest_moves_the_clock_forward() {
+    let (mut env, admin) = setup();
+
+    let mut clock: anchor_lang::prelude::Clock = env.svm.get_sysvar();
+    clock.unix_timestamp += 86_400;
+    env.svm.set_sysvar(&clock);
+
+    let ix = Instruction::new_with_bytes(
+        pool::id(),
+        &pool::instruction::AccrueInterest {}.data(),
+        pool::accounts::AccrueInterest { pool: env.pool, vault: env.vault }.to_account_metas(None),
+    );
+    assert!(send(&mut env.svm, &admin, ix));
+
+    let account = env.svm.get_account(&env.pool).unwrap();
+    let cfg = pool::state::PoolConfig::try_deserialize(&mut account.data.as_slice()).unwrap();
+    assert_eq!(cfg.last_accrual, clock.unix_timestamp);
+    assert_eq!(cfg.total_borrowed, 0);    
+    let w = pool::rates::WAD;
+    assert!(cfg.tier_index[0] > cfg.tier_index[1]); 
+    assert!(cfg.tier_index[1] > cfg.tier_index[2]);
+    assert!(cfg.tier_index[2] > cfg.tier_index[3]); 
+    assert!(cfg.tier_index[3] > w);
+    assert_eq!(cfg.tier_index[2], w + w * 200 * 86_400 / (10_000 * 365 * 86_400));             
+}

@@ -3,7 +3,7 @@ pub mod error;
 pub mod instructions;
 pub mod math;
 pub mod state;
-
+pub mod rates;
 use anchor_lang::prelude::*;
 
 pub use constants::*;
@@ -18,6 +18,9 @@ pub mod pool {
 
     pub fn init_pool(ctx: Context<InitPool>) -> Result<()> {
         crate::instructions::handle_init_pool(ctx)
+    }
+    pub fn accrue_interest(ctx: Context<AccrueInterest>) -> Result<()> {
+        crate::instructions::handle_accrue_interest(ctx)
     }
 
     pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {

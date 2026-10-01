@@ -7,7 +7,7 @@ use anchor_spl::token::{self, Burn, Mint, Token, TokenAccount, Transfer};
 pub struct Withdraw<'info> {
     pub lender: Signer<'info>,
 
-    #[account(seeds = [POOL_SEED], bump = pool.bump, has_one = vault, has_one = lp_mint)]
+    #[account(mut, seeds = [POOL_SEED], bump = pool.bump, has_one = vault, has_one = lp_mint)]
     pub pool: Account<'info, PoolConfig>,
 
     #[account(mut)]
@@ -27,6 +27,7 @@ pub struct Withdraw<'info> {
 
 pub fn handle_withdraw(ctx: Context<Withdraw>, shares: u64) -> Result<()> {
     require!(shares > 0, PoolError::ZeroAmount);
+    ctx.accounts.pool.accrue_now(ctx.accounts.vault.amount)?;
     let a = &ctx.accounts;
 
     let total_assets = a.pool.total_assets(a.vault.amount).ok_or(PoolError::MathOverflow)?;

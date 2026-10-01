@@ -38,6 +38,11 @@ pub fn handle_init_pool(ctx: Context<InitPool>) -> Result<()> {
     pool.vault = ctx.accounts.vault.key();
     pool.lp_mint = ctx.accounts.lp_mint.key();
     pool.total_borrowed = 0;
+    pool.protocol_fees = 0;
+    pool.tier_index = [crate::rates::WAD; TIERS];
+    pool.tier_scaled_debt = [0; TIERS];
+    pool.tier_spread_bps = TIER_SPREAD_BPS;
+    pool.reserve_factor_bps = RESERVE_FACTOR_BPS;
     pool.last_accrual = Clock::get()?.unix_timestamp;
     pool.bump = ctx.bumps.pool;
     pool.vault_bump = ctx.bumps.vault;
