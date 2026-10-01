@@ -3,7 +3,7 @@ import bs58 from "bs58";
 import klendIdl from "@kamino-finance/klend-sdk/dist/idl/klend.json";
 import { getAllTransactions } from "./heliusClient";
 
-const KAMINO_PROGRAM_ID = "KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD";
+export const KAMINO_PROGRAM_ID = "KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD";
 
 const NO_BORROW_HISTORY_SCORE = 0;
 const LIQUIDATION_BASE_PENALTY = 100;
@@ -37,7 +37,7 @@ for (const ix of (klendIdl as any).instructions) {
     DISCRIMINATOR_MAP.set(computeDiscriminator(camelToSnake(ix.name)), ix.name);
 }
 
-function getInstructionName(rawData: string): string | undefined {
+export function getInstructionName(rawData: string): string | undefined {
     const bytes = bs58.decode(rawData);
     const discriminatorHex = Buffer.from(bytes.slice(0, 8)).toString("hex");
     return DISCRIMINATOR_MAP.get(discriminatorHex);
