@@ -10,4 +10,16 @@ pub enum PoolError {
     InsufficientLiquidity,
     #[msg("Math overflow")]
     MathOverflow,
+    #[msg("Loan is above this wallet's limit")]
+    LoanTooLarge,
+    #[msg("This collateral needs a higher tier")]
+    CollateralNotAllowed,
+    #[msg("Collateral is worth less than the tier requires")]
+    InsufficientCollateral,
+    #[msg("Price account is not a valid Pyth price update")]
+    InvalidPriceAccount,
+    #[msg("Price is for a different asset")]
+    WrongPriceFeed,
+    #[msg("Price is too old")]
+    StalePrice,
 }

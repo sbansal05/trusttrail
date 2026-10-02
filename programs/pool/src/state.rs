@@ -127,3 +127,56 @@ mod tests {
         assert_eq!(pool().tier_rates_bps(100 * U), [600, 400, 200, 50]);
     }
 }
+
+/// One accepted collateral token, added by the admin.
+#[account]
+#[derive(InitSpace)]
+pub struct CollateralConfig {
+    pub mint: Pubkey,
+    /// Token account (owned by the pool PDA) that holds this collateral.
+    pub vault: Pubkey,
+    /// Pyth feed id this collateral is priced with (e.g. SOL/USD).
+    pub feed_id: [u8; 32],
+    /// Lowest tier allowed to post it (0 = everyone).
+    pub min_tier: u8,
+    /// A price older than this is refused.
+    pub max_age_secs: u32,
+    pub decimals: u8,
+    pub bump: u8,
+}
+
+/// Per-borrower state kept by the pool.
+#[account]
+#[derive(InitSpace)]
+pub struct BorrowerState {
+    pub wallet: Pubkey,
+    /// Biggest loan repaid on time; the next loan may be at most twice this.
+    pub largest_repaid: u64,
+    /// Used in the next Loan's seeds; goes up by one per loan.
+    pub next_loan_id: u64,
+    pub open_loans: u16,
+    pub bump: u8,
+}
+
+pub const LOAN_OPEN: u8 = 0;
+
+/// One loan. Its address is also the SAS attestation nonce at repay.
+#[account]
+#[derive(InitSpace)]
+pub struct Loan {
+    pub borrower: Pubkey,
+    pub loan_id: u64,
+    pub tier_at_open: u8,
+    pub principal: u64,
+    /// Tier's borrow index when the loan opened.
+    pub index_at_open: u128,
+    /// principal × WAD ÷ index_at_open, rounded up.
+    pub scaled_debt: u128,
+    pub collateral_mint: Pubkey,
+    pub collateral_amount: u64,
+    pub collateral_ratio_bps: u16,
+    pub opened_at: i64,
+    pub due_at: i64,
+    pub status: u8,
+    pub bump: u8,
+}
