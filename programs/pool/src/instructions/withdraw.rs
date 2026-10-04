@@ -1,7 +1,8 @@
 use crate::error::PoolError;
 use crate::math::assets_for_shares;
 use crate::*;
-use anchor_spl::token::{self, Burn, Mint, Token, TokenAccount, Transfer};
+use crate::transfers::pool_transfer;
+use anchor_spl::token::{self, Burn, Mint, Token, TokenAccount};
 
 #[derive(Accounts)]
 pub struct Withdraw<'info> {
@@ -48,18 +49,5 @@ pub fn handle_withdraw(ctx: Context<Withdraw>, shares: u64) -> Result<()> {
     )?;
 
     // USDC: vault → lender (pool PDA signs)
-    let seeds: &[&[&[u8]]] = &[&[POOL_SEED, &[a.pool.bump]]];
-    token::transfer(
-        CpiContext::new_with_signer(
-            a.token_program.key(),
-            Transfer {
-                from: a.vault.to_account_info(),
-                to: a.lender_usdc.to_account_info(),
-                authority: a.pool.to_account_info(),
-            },
-            seeds,
-        ),
-        amount,
-    )?;
-    Ok(())
+    pool_transfer(a.token_program.key(), a.vault.to_account_info(), a.lender_usdc.to_account_info(), a.pool.to_account_info(), a.pool.bump, amount)?;    Ok(())
 }

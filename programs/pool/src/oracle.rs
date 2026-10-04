@@ -1,7 +1,9 @@
 //! Reading a Pyth price from a PriceUpdateV2 account (pull oracle).
 //! Layout (Borsh): 8 discriminator | 32 write_authority | verification_level (1 byte tag,
 //! +1 byte if Partial) | feed_id 32 | price i64 | conf u64 | exponent i32 | publish_time i64 | …
-
+use crate::error::PoolError;
+use crate::state::CollateralConfig;
+use anchor_lang::prelude::*;
 pub const PRICE_UPDATE_V2_DISCRIMINATOR: [u8; 8] = [34, 241, 35, 99, 157, 126, 244, 205];
 const VERIFICATION_FULL: u8 = 1;
 
@@ -39,6 +41,17 @@ pub fn parse_price_update(data: &[u8]) -> Option<PythPrice> {
 pub fn low_price(p: &PythPrice) -> Option<u64> {
     let low = p.price.checked_sub(p.conf as i64)?;
     if low <= 0 { None } else { Some(low as u64) }
+}
+
+/// Price of a collateral right now, after every safety check: (low price, exponent).
+/// The account's owner (Pyth receiver) is checked by the instruction's constraints.
+pub fn collateral_price(price_update: &AccountInfo, cfg: &CollateralConfig, now: i64) -> Result<(u64, i32)> {
+    let data = price_update.try_borrow_data()?;
+    let p = parse_price_update(&data).ok_or(PoolError::InvalidPriceAccount)?;
+    require!(p.feed_id == cfg.feed_id, PoolError::WrongPriceFeed);
+    require!(now - p.publish_time <= cfg.max_age_secs as i64, PoolError::StalePrice);
+    let price = low_price(&p).ok_or(PoolError::InvalidPriceAccount)?;
+    Ok((price, p.exponent))
 }
 
 /// Builds account bytes in the same layout; used by tests.

@@ -1,8 +1,9 @@
 use crate::error::PoolError;
-use crate::oracle::{low_price, parse_price_update};
+use crate::oracle::collateral_price;
 use crate::terms::*;
+use crate::transfers::{pool_transfer, user_transfer};
 use crate::*;
-use anchor_spl::token::{self, Token, TokenAccount, Transfer};
+use anchor_spl::token::{Token, TokenAccount};
 use trusttrail::scoring::{blend, compute_tier, decay_bps, native_component};
 use trusttrail::state::UserReputationV2;
 
@@ -80,49 +81,28 @@ pub fn handle_borrow(ctx: Context<Borrow>, amount: u64, collateral_amount: u64) 
     // 2. How much may they borrow?
     require!(amount <= max_loan(tier, a.borrower_state.largest_repaid), PoolError::LoanTooLarge);
     require!(amount <= a.vault.amount, PoolError::InsufficientLiquidity);
-
+    
     // 3. What is the collateral worth? (Pyth, low end of the confidence range)
-    let data = a.price_update.try_borrow_data()?;
-    let p = parse_price_update(&data).ok_or(PoolError::InvalidPriceAccount)?;
-    require!(p.feed_id == a.collateral_config.feed_id, PoolError::WrongPriceFeed);
-    require!(now - p.publish_time <= a.collateral_config.max_age_secs as i64, PoolError::StalePrice);
-    let price = low_price(&p).ok_or(PoolError::InvalidPriceAccount)?;
-    let value = collateral_value(collateral_amount, a.collateral_config.decimals, price, p.exponent)
+    let (price, expo) = collateral_price(&a.price_update, &a.collateral_config, now)?;
+    let value = collateral_value(collateral_amount, a.collateral_config.decimals, price, expo)
         .ok_or(PoolError::MathOverflow)?;
-    drop(data);
-
+    
     // 4. Is it enough for this tier?
     let ratio = TIER_COLLATERAL_BPS[tier as usize];
     require!(enough_collateral(value, amount, ratio), PoolError::InsufficientCollateral);
     // 5. Lock the collateral (borrower signs)
-    token::transfer(
-        CpiContext::new(
-            a.token_program.key(),
-            Transfer {
-                from: a.borrower_collateral.to_account_info(),
-                to: a.collateral_vault.to_account_info(),
-                authority: a.borrower.to_account_info(),
-            },
-        ),
+    let token = a.token_program.key();
+    user_transfer(
+        token,
+        a.borrower_collateral.to_account_info(),
+        a.collateral_vault.to_account_info(),
+        a.borrower.to_account_info(),
         collateral_amount,
     )?;
+    pool_transfer(token, a.vault.to_account_info(), a.borrower_usdc.to_account_info(), a.pool.to_account_info(), a.pool.bump, amount)?;
 
-    // 6. Send the USDC (pool PDA signs)
-    let seeds: &[&[&[u8]]] = &[&[POOL_SEED, &[a.pool.bump]]];
-    token::transfer(
-        CpiContext::new_with_signer(
-            a.token_program.key(),
-            Transfer {
-                from: a.vault.to_account_info(),
-                to: a.borrower_usdc.to_account_info(),
-                authority: a.pool.to_account_info(),
-            },
-            seeds,
-        ),
-        amount,
-    )?;
 
-    // 7. Book the debt: pool totals, the Loan, the borrower's counters
+    // 6. Book the debt: pool totals, the Loan, the borrower's counters
     let index = a.pool.tier_index[tier as usize];
     let scaled = scaled_debt(amount, index);
     let loan_key_bump = ctx.bumps.loan;

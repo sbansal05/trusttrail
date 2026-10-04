@@ -6,6 +6,7 @@ pub mod oracle;
 pub mod state;
 pub mod rates;
 pub mod terms;
+pub mod transfers;
 use anchor_lang::prelude::*;
 
 pub use constants::*;
@@ -32,6 +33,15 @@ pub mod pool {
     pub fn borrow(ctx: Context<Borrow>, amount: u64, collateral_amount: u64) -> Result<()> {
         crate::instructions::handle_borrow(ctx, amount, collateral_amount)
     }
+
+    pub fn repay(ctx: Context<Repay>) -> Result<()> {
+        crate::instructions::handle_repay(ctx)
+    }
+    
+    pub fn liquidate(ctx: Context<Liquidate>) -> Result<()> {
+        crate::instructions::handle_liquidate(ctx)
+    }
+
 
     pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
         crate::instructions::handle_deposit(ctx, amount)

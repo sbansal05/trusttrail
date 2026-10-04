@@ -22,4 +22,10 @@ pub enum PoolError {
     WrongPriceFeed,
     #[msg("Price is too old")]
     StalePrice,
+    #[msg("This loan is already closed")]
+    LoanNotOpen,
+    #[msg("Account does not belong to this loan")]
+    WrongLoan,
+    #[msg("Loan is healthy and cannot be liquidated")]
+    NotLiquidatable,
 }

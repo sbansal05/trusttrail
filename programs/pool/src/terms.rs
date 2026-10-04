@@ -2,7 +2,7 @@
 
 use crate::constants::*;
 use crate::rates::{BPS, WAD};
-
+use trusttrail::{OUTCOME_LATE, OUTCOME_ON_TIME};
 /// Biggest loan allowed: the tier's maximum, and at most double the largest loan
 /// this wallet has repaid (but always at least 100 USDC).
 pub fn max_loan(tier: u8, largest_repaid: u64) -> u64 {
@@ -39,6 +39,41 @@ pub fn scaled_debt(amount: u64, index: u128) -> u128 {
     let b = index;
     (a + b - 1) / b
     
+}
+
+/// USDC owed now for `scaled` index units at `index`, rounded UP (the mirror of `scaled_debt`).
+pub fn debt_now(scaled: u128, index: u128) -> Option<u64> {
+    let debt = scaled.checked_mul(index)?.checked_add(WAD - 1)? / WAD;
+    u64::try_from(debt).ok()
+}
+
+/// On time if repaid by the due date, late after it.
+pub fn repay_outcome(now: i64, due_at: i64) -> u8 {
+    if now <= due_at { OUTCOME_ON_TIME } else { OUTCOME_LATE }
+}
+
+/// Unhealthy = collateral worth less than LIQ_THRESHOLD of the debt.
+pub fn is_liquidatable(value: u64, debt: u64) -> bool {
+    !enough_collateral(value, debt, LIQ_THRESHOLD_BPS)
+}
+
+/// Inverse of `collateral_value`: base units of the token worth `value` micro-USDC. Rounds down.
+pub fn collateral_for_value(value: u64, decimals: u8, price: u64, expo: i32) -> Option<u64> {
+    let shift = decimals as i32 - expo - 6;
+    let raw = if shift >= 0 {
+        (value as u128).checked_mul(10u128.checked_pow(shift as u32)?)? / price as u128
+    } else {
+        value as u128 / 10u128.checked_pow((-shift) as u32)? / price as u128
+    };
+    u64::try_from(raw).ok()
+}
+
+/// Splits a liquidated loan's collateral: (to the liquidator, back to the borrower).
+/// The liquidator gets collateral worth debt + bonus, or all of it if there isn't enough.
+pub fn liquidation_split(debt: u64, collateral: u64, decimals: u8, price: u64, expo: i32) -> Option<(u64, u64)> {
+    let reward_value = (debt as u128 * (BPS + LIQ_BONUS_BPS) as u128 / BPS as u128) as u64;
+    let seize = collateral_for_value(reward_value, decimals, price, expo)?.min(collateral);
+    Some((seize, collateral - seize))
 }
 
 #[cfg(test)]
@@ -81,5 +116,43 @@ mod tests {
         assert_eq!(scaled_debt(100 * U, WAD), 100 * U as u128);
         assert_eq!(scaled_debt(54 * U, WAD * 108 / 100), 50 * U as u128); 
         assert_eq!(scaled_debt(1, 3 * WAD), 1);                           // 1/3 → rounds up to 1
+    }
+        #[test]
+    fn debt_rounds_up_and_mirrors_scaled_debt() {
+        assert_eq!(debt_now(100 * U as u128, WAD), Some(100 * U));
+        assert_eq!(debt_now(50 * U as u128, WAD * 108 / 100), Some(54 * U));
+        assert_eq!(debt_now(1, WAD + 1), Some(2));                 // 1.000…001 → 2
+        let s = scaled_debt(77 * U, WAD * 103 / 100);
+        assert!(debt_now(s, WAD * 103 / 100).unwrap() >= 77 * U); // never less than borrowed
+    }
+
+    #[test]
+    fn on_time_until_the_due_second() {
+        assert_eq!(repay_outcome(100, 100), OUTCOME_ON_TIME);
+        assert_eq!(repay_outcome(101, 100), OUTCOME_LATE);
+    }
+
+    #[test]
+    fn liquidatable_below_110_percent() {
+        assert!(!is_liquidatable(110 * U, 100 * U));
+        assert!(is_liquidatable(110 * U - 1, 100 * U));
+    }
+
+    #[test]
+    fn collateral_for_value_inverts_value() {
+        // 150 USDC at $150/SOL = 1 SOL
+        assert_eq!(collateral_for_value(150 * U, 9, 15_000_000_000, -8), Some(1_000_000_000));
+        // 10 USDC at $1 = 10 USDC (6 decimals)
+        assert_eq!(collateral_for_value(10 * U, 6, 100_000_000, -8), Some(10 * U));
+    }
+
+    #[test]
+    fn liquidator_gets_debt_plus_5_percent() {
+        // debt 100, 1 SOL at $109: liquidator gets $105 of SOL, borrower the rest
+        let (liq, back) = liquidation_split(100 * U, 1_000_000_000, 9, 10_900_000_000, -8).unwrap();
+        assert_eq!(liq, 963_302_752);
+        assert_eq!(back, 1_000_000_000 - 963_302_752);
+        // not enough collateral: liquidator takes everything
+        assert_eq!(liquidation_split(100 * U, 500_000_000, 9, 10_900_000_000, -8), Some((500_000_000, 0)));
     }
 }

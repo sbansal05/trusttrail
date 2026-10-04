@@ -4,6 +4,9 @@ pub mod withdraw;
 pub mod accrue_interest;
 pub mod add_collateral;
 pub mod borrow;
+pub mod settle;
+pub mod repay;
+pub mod liquidate;
 
 pub use deposit::*;
 pub use init_pool::*;
@@ -11,3 +14,6 @@ pub use withdraw::*;
 pub use accrue_interest::*;
 pub use add_collateral::*;
 pub use borrow::*;
+pub use settle::*;
+pub use repay::*;
+pub use liquidate::*;

@@ -66,7 +66,14 @@ impl PoolConfig {
         Some(())
     }
 
-        /// Accrue up to the current on-chain time. Every pool instruction calls this first.
+    /// Takes a closed loan out of the books: its index units leave the tier, its debt leaves the total.
+    pub fn remove_debt(&mut self, tier: usize, scaled: u128, debt: u64) -> Option<()> {
+        self.tier_scaled_debt[tier] = self.tier_scaled_debt[tier].checked_sub(scaled)?;
+        self.total_borrowed = self.total_borrowed.saturating_sub(debt);
+        Some(())
+    }
+
+    /// Accrue up to the current on-chain time. Every pool instruction calls this first.
     pub fn accrue_now(&mut self, vault_balance: u64) -> Result<()> {
         let now = Clock::get()?.unix_timestamp;
         self.accrue(now, vault_balance).ok_or(PoolError::MathOverflow)?;
@@ -118,6 +125,16 @@ mod tests {
         assert_eq!(p.protocol_fees, 6_400_000);                     // 10% of 64 USDC
         assert_eq!(p.total_assets(200 * U), Some(1_057_600_000));   // lenders: 200 + 864 − 6.4
     }
+    #[test]
+    fn remove_debt_clears_the_tier() {
+        let mut p = pool();
+        p.tier_scaled_debt[0] = 100 * U as u128;
+        p.total_borrowed = 100 * U;
+        p.remove_debt(0, 100 * U as u128, 100 * U + 1).unwrap(); // rounded-up debt
+        assert_eq!(p.tier_scaled_debt[0], 0);
+        assert_eq!(p.total_borrowed, 0);                          // never below zero
+        assert!(p.remove_debt(0, 1, 0).is_none());                // can't remove what isn't there
+    }
 
     #[test]
     fn tiers_pay_different_rates() {
@@ -159,6 +176,8 @@ pub struct BorrowerState {
 }
 
 pub const LOAN_OPEN: u8 = 0;
+pub const LOAN_REPAID: u8 = 1;
+pub const LOAN_LIQUIDATED: u8 = 2;
 
 /// One loan. Its address is also the SAS attestation nonce at repay.
 #[account]
@@ -179,4 +198,10 @@ pub struct Loan {
     pub due_at: i64,
     pub status: u8,
     pub bump: u8,
+}
+impl Loan {
+    /// What it takes to close this loan now: index units × the tier's current index.
+    pub fn debt(&self, pool: &PoolConfig) -> Option<u64> {
+        crate::terms::debt_now(self.scaled_debt, pool.tier_index[self.tier_at_open as usize])
+    }
 }

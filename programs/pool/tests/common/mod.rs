@@ -1,6 +1,6 @@
 //! Helpers shared by every pool test file.
 #![allow(dead_code)]
-
+pub mod market;
 use {
     anchor_lang::{
         prelude::{Clock, Pubkey},

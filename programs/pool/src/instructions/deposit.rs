@@ -1,8 +1,8 @@
 use crate::error::PoolError;
 use crate::math::shares_for_deposit;
+use crate::transfers::user_transfer;
 use crate::*;
-use anchor_spl::token::{self, Mint, MintTo, Token, TokenAccount, Transfer};
-
+use anchor_spl::token::{self, Mint, MintTo, Token, TokenAccount};
 #[derive(Accounts)]
 pub struct Deposit<'info> {
     pub lender: Signer<'info>,
@@ -39,17 +39,7 @@ pub fn handle_deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
     
 
     // USDC: lender → vault (lender signs)
-    token::transfer(
-        CpiContext::new(
-            a.token_program.key(),
-            Transfer {
-                from: a.lender_usdc.to_account_info(),
-                to: a.vault.to_account_info(),
-                authority: a.lender.to_account_info(),
-            },
-        ),
-        amount,
-    )?;
+    user_transfer(a.token_program.key(), a.lender_usdc.to_account_info(), a.vault.to_account_info(), a.lender.to_account_info(), amount)?;
 
     // LP shares: mint → lender (pool PDA signs)
     let seeds: &[&[&[u8]]] = &[&[POOL_SEED, &[a.pool.bump]]];
