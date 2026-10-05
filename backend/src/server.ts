@@ -13,11 +13,15 @@ import idl from "../../target/idl/trusttrail.json";
 import cors from "cors";
 import BN from "bn.js";
 import bs58 from "bs58";
+import { createPool } from "./history/db";
+import { migrate } from "./history/store";
+import { importHistoryRouter } from "./history/routes";
 const app = express();
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || "http://localhost:5173").split(",");
 app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
-
+const pool = createPool();
+app.use(importHistoryRouter(pool));
 const connection = new Connection("https://api.devnet.solana.com", "confirmed");
 const authoritySecret = new Uint8Array(JSON.parse(process.env.AUTHORITY_PRIVATE_KEY!));
 const authorityKeypair = Keypair.fromSecretKey(authoritySecret);
@@ -67,4 +71,9 @@ app.post("/update-score/:walletAddress", async (req, res) => {
     }
 });
 
-app.listen(3000, () => console.log("listening on port 3000"));
+migrate(pool)
+    .then(() => app.listen(3000, () => console.log("listening on port 3000")))
+    .catch((err) => {
+        console.error("database migration failed:", err);
+        process.exit(1);
+    });
