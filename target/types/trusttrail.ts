@@ -441,6 +441,178 @@ export type Trusttrail = {
       ]
     },
     {
+      "name": "removeWriter",
+      "discriminator": [
+        247,
+        145,
+        28,
+        134,
+        227,
+        132,
+        243,
+        83
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "globalConfig"
+          ]
+        },
+        {
+          "name": "globalConfig",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "whitelist",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  119,
+                  114,
+                  105,
+                  116,
+                  101,
+                  114,
+                  95,
+                  119,
+                  104,
+                  105,
+                  116,
+                  101,
+                  108,
+                  105,
+                  115,
+                  116
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "writer",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "setImportedScore",
+      "discriminator": [
+        33,
+        44,
+        213,
+        193,
+        41,
+        122,
+        156,
+        44
+      ],
+      "accounts": [
+        {
+          "name": "writer",
+          "signer": true
+        },
+        {
+          "name": "whitelist",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  119,
+                  114,
+                  105,
+                  116,
+                  101,
+                  114,
+                  95,
+                  119,
+                  104,
+                  105,
+                  116,
+                  101,
+                  108,
+                  105,
+                  115,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "wallet",
+          "signer": true
+        },
+        {
+          "name": "reputation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  117,
+                  115,
+                  116,
+                  45,
+                  118,
+                  50
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "wallet"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "score",
+          "type": "u16"
+        },
+        {
+          "name": "meaningfulOnTime",
+          "type": "u16"
+        },
+        {
+          "name": "meaningfulWeightBps",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "updateScore",
       "discriminator": [
         188,
@@ -616,6 +788,26 @@ export type Trusttrail = {
       "code": 6005,
       "name": "invalidOutcome",
       "msg": "Outcome must be 0: on time, 1: late, 2: liquidated, 3: defaulted"
+    },
+    {
+      "code": 6006,
+      "name": "invalidImportedScore",
+      "msg": "Imported score must be between 0 and 1000"
+    },
+    {
+      "code": 6007,
+      "name": "alreadyImported",
+      "msg": "History was already imported for this wallet"
+    },
+    {
+      "code": 6008,
+      "name": "importTooSoon",
+      "msg": "History can be imported again only 15 days after the last import"
+    },
+    {
+      "code": 6009,
+      "name": "writerNotFound",
+      "msg": "This writer is not on the whitelist"
     }
   ],
   "types": [

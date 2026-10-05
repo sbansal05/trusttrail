@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { principalWeightBps, durationBps, loanContributionBps, decayBps, nativeComponent, USDC } from "./scoring";
+import { principalWeightBps, durationBps, loanContributionBps, decayBps, nativeComponent, USDC, importSummary, meaningfulLoan } from "./scoring";
+import type { Loan } from "./types";
 
 const H = 3_600, T0 = 1_800_000_000, D90 = 90 * 86_400;
 const usd = (d: number) => BigInt(d) * USDC;
@@ -50,4 +51,36 @@ test("native component (same as Rust b_native_component)", () => {
     assert.equal(nativeComponent(20n * loan, 2n * loan), 750n);
     assert.equal(nativeComponent(20n * loan, decayBps(2n * loan, T0, T0 + D90)), 875n);
     assert.equal(nativeComponent(1n * loan, 3n * loan), 0n);
+});
+const DAY = 86_400;
+const histLoan = (principal: bigint, openedAt: number, days: number, outcome: 0 | 2): Loan => ({
+    protocol: "kamino", wallet: "w", position: "p", mint: "m", decimals: 6, principal,
+    openedAt, closedAt: openedAt + days * DAY, dueAt: 0, outcome,
+    peakAt: openedAt, openSignature: "o", peakSignature: "p", endSignature: "e",
+});
+
+test("meaningful: $100+, 24h+, repaid", () => {
+    assert.equal(meaningfulLoan(usd(100), T0, T0 + DAY, 0), true);
+    assert.equal(meaningfulLoan(usd(99), T0, T0 + DAY, 0), false);
+    assert.equal(meaningfulLoan(usd(500), T0, T0 + DAY - 1, 0), false);
+    assert.equal(meaningfulLoan(usd(500), T0, T0 + 10 * DAY, 2), false);
+});
+
+test("importSummary: three median Kamino loans", () => {
+    const loans = [0, 1, 2].map((i) => histLoan(usd(740), T0 + i * 10 * DAY, 5, 0));
+    const s = importSummary(loans, T0 + 60 * DAY);
+    // no due date → each adds 0.5 to S⁺ → 1.5 of 8.0 → 187
+    assert.equal(s.score, 187n);
+    assert.equal(s.meaningfulOnTime, 3);
+    assert.equal(s.meaningfulWeightBps, 30_000n);
+});
+
+test("importSummary: a liquidation subtracts, and fades with time", () => {
+    const good = [0, 1, 2, 3].map((i) => histLoan(usd(740), T0 + i * 10 * DAY, 5, 0)); // S⁺ = 2.0
+    const liq = histLoan(usd(740), T0 + 50 * DAY, 3, 2);                             // S⁻ = 2.0
+    const fresh = importSummary([...good, liq], T0 + 53 * DAY);
+    const later = importSummary([...good, liq], T0 + 53 * DAY + 180 * DAY);
+    assert.equal(fresh.score, 0n);       // 2.0 − 2.0
+    assert.equal(later.score, 187n);     // penalty quartered after 180 days: 2.0 − 0.5 = 1.5
+    assert.equal(fresh.meaningfulOnTime, 4);
 });

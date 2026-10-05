@@ -8,7 +8,7 @@ skip-lint = false
 
 [programs.localnet]
 trusttrail = "BtgvVKaXQMJsRUdZ8ahuBftnwDpYtass15TqTwsJJA9s"
-
+pool = "Bhk8ba98TDJw2AFE6huU7yUyvfp5axMH6t3MNnXXpasZ"
 [provider]
 cluster = "localnet"
 wallet = "~/.config/solana/id.json"

@@ -1,6 +1,6 @@
 import { CreditEvent, Loan } from "./types";
 
-type OpenLoan = { first: CreditEvent; debt: bigint; peak: bigint };
+type OpenLoan = { first: CreditEvent; debt: bigint; peak: bigint; peakEvent: CreditEvent };
 
 /** Turns one wallet's events into closed loans. Open loans at the end are dropped. */
 export function buildLoans(events: CreditEvent[]): Loan[] {
@@ -16,11 +16,14 @@ export function buildLoans(events: CreditEvent[]): Loan[] {
         if (e.kind === "borrow") {
             let  o = cur;
             if (!o) {
-                o = {first: e, debt: 0n, peak: 0n}
+                o = { first: e, debt: 0n, peak: 0n, peakEvent: e };
                 open.set(key, o)
             }
             o.debt += e.amount
-            if (o.debt > o.peak) o.peak = o.debt 
+            if (o.debt > o.peak){
+                o.peak = o.debt ;
+                o.peakEvent = e;
+            }
 
             
         } else if (e.kind === "repay") {
@@ -28,7 +31,7 @@ export function buildLoans(events: CreditEvent[]): Loan[] {
             cur.debt -= e.amount;
             if (cur.debt <= 0n) {
                 const outcome = cur.first.dueAt !== 0 && e.timestamp > cur.first.dueAt ? 1 : 0;
-                loans.push(close(cur, e.timestamp, outcome))
+                loans.push(close(cur, e, outcome))
                 open.delete(key);
             }
             
@@ -37,7 +40,7 @@ export function buildLoans(events: CreditEvent[]): Loan[] {
                 continue;
             } else {
                 const outcome = 2;
-                loans.push(close(cur, e.timestamp, 2));
+                loans.push(close(cur, e, 2));
                 open.delete(key)
             }
         }
@@ -45,7 +48,7 @@ export function buildLoans(events: CreditEvent[]): Loan[] {
     return loans;
 }
 
-function close(o: OpenLoan, closedAt: number, outcome: Loan["outcome"]): Loan {
+function close(o: OpenLoan, end: CreditEvent, outcome: Loan["outcome"]): Loan {
     const f = o.first;
     return {
         protocol: f.protocol,
@@ -55,8 +58,12 @@ function close(o: OpenLoan, closedAt: number, outcome: Loan["outcome"]): Loan {
         decimals: f.decimals,
         principal: o.peak,
         openedAt: f.timestamp,
-        closedAt,
+        closedAt: end.timestamp,
         dueAt: f.dueAt,
         outcome,
+        peakAt: o.peakEvent.timestamp,
+        openSignature: f.signature,
+        peakSignature: o.peakEvent.signature,
+        endSignature: end.signature,
     };
 }

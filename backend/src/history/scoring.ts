@@ -1,3 +1,5 @@
+import type { Loan } from "./types";
+
 export const BPS = 10_000n;
 export const USDC = 1_000_000n;
 export const MIN_PRINCIPAL = 100n * USDC;
@@ -81,4 +83,34 @@ export function nativeComponent(sPlus: bigint, sMinusNow: bigint): bigint {
     const good = sPlus < FULL_WEIGHT_BPS ? sPlus : FULL_WEIGHT_BPS;
     const net = good > sMinusNow ? good - sMinusNow : 0n;
     return (net * SCORE_MAX) / FULL_WEIGHT_BPS;
+}
+
+/** Repaid in full (on time or late), at least $100, open at least 24 h. Same as Rust `meaningful_loan`. */
+export function meaningfulLoan(principal: bigint, openedAt: number, closedAt: number, outcome: number): boolean {
+    const repaidInFull = outcome === 0 || outcome === 1;
+    return repaidInFull && principal >= MIN_PRINCIPAL && closedAt - openedAt >= MIN_HOLD_SECS;
+}
+
+export type ImportSummary = {
+    score: bigint;               // 0..1000, written as imported_score
+    meaningfulOnTime: number;    // added to meaningful_on_time
+    meaningfulWeightBps: bigint; // added to meaningful_weight_bps
+};
+
+/** What `set_imported_score` writes for a wallet's outside history. Loan principals must be in micro-USD. */
+export function importSummary(loans: Loan[], now: number): ImportSummary {
+    let sPlus = 0n;
+    let sMinus = 0n;
+    let meaningfulOnTime = 0;
+    let meaningfulWeightBps = 0n;
+    for (const l of loans) {
+        const [plus, minus] = loanContributionBps(l.principal, l.openedAt, l.closedAt, l.dueAt, l.outcome);
+        sPlus += plus;
+        sMinus += decayBps(minus, l.closedAt, now); // each penalty fades from the day it happened (F34)
+        if (l.outcome === 0 && meaningfulLoan(l.principal, l.openedAt, l.closedAt, l.outcome)) {
+            meaningfulOnTime += 1;
+            meaningfulWeightBps += principalWeightBps(l.principal);
+        }
+    }
+    return { score: nativeComponent(sPlus, sMinus), meaningfulOnTime, meaningfulWeightBps };
 }

@@ -86,3 +86,29 @@ test("with a due date: on time before it, late after it", () => {
     assert.equal(onTime[0].outcome, 0);
     assert.equal(late[0].outcome, 1);
 });
+test("a loan remembers when its peak was and its open, peak and end transactions", () => {
+    const loans = buildLoans([
+        ev("borrow", 100n * USDC, T0, { signature: "OPEN" }),
+        ev("borrow", 50n * USDC, T0 + DAY, { signature: "PEAK" }),      // debt 150 = peak
+        ev("repay", 20n * USDC, T0 + 2 * DAY, { signature: "R1" }),
+        ev("borrow", 10n * USDC, T0 + 3 * DAY, { signature: "B3" }),    // debt 140, not a new peak
+        ev("repay", 140n * USDC, T0 + 4 * DAY, { signature: "END" }),
+    ]);
+    assert.equal(loans.length, 1);
+    assert.equal(loans[0].principal, 150n * USDC);
+    assert.equal(loans[0].peakAt, T0 + DAY);
+    assert.equal(loans[0].openSignature, "OPEN");
+    assert.equal(loans[0].peakSignature, "PEAK");
+    assert.equal(loans[0].endSignature, "END");
+});
+
+test("a single borrow is both the open and the peak", () => {
+    const loans = buildLoans([
+        ev("borrow", 300n * USDC, T0, { signature: "B" }),
+        ev("liquidation", 300n * USDC, T0 + DAY, { signature: "LIQ" }),
+    ]);
+    assert.equal(loans[0].peakAt, T0);
+    assert.equal(loans[0].openSignature, "B");
+    assert.equal(loans[0].peakSignature, "B");
+    assert.equal(loans[0].endSignature, "LIQ");
+});
