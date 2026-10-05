@@ -106,7 +106,7 @@ export function importSummary(loans: Loan[], now: number): ImportSummary {
     for (const l of loans) {
         const [plus, minus] = loanContributionBps(l.principal, l.openedAt, l.closedAt, l.dueAt, l.outcome);
         sPlus += plus;
-        sMinus += decayBps(minus, l.closedAt, now); // each penalty fades from the day it happened (F34)
+        sMinus += decayBps(minus, l.closedAt, now); // each penalty fades from the day it happened
         if (l.outcome === 0 && meaningfulLoan(l.principal, l.openedAt, l.closedAt, l.outcome)) {
             meaningfulOnTime += 1;
             meaningfulWeightBps += principalWeightBps(l.principal);

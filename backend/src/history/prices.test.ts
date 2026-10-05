@@ -49,7 +49,7 @@ test("decimal strings become 12-decimal fixed point", () => {
     assert.equal(px("0.9997"), 999_700_000_000n);
     assert.equal(px("188.8668546531234"), 188_866_854_653_123n); // extra digits cut, not rounded
     assert.equal(px("42"), 42_000_000_000_000n);
-    assert.equal(px("0.00000383"), 3_830_000n); // F39: BONK keeps every digit
+    assert.equal(px("0.00000383"), 3_830_000n); // BONK keeps every digit
 });
 
 test("toMicroUsd: 2 SOL at $189.31 = $378.62, 1M BONK at $0.00000383 = $3.83", () => {

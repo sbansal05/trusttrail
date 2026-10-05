@@ -41,9 +41,9 @@ export type Loan = {
     //outcome for kamino: 0 | 2
     outcome: 0 | 1 | 2 | 3;
     
-    // When the debt reached its peak (F10: the loan is priced at this moment).
+    // When the debt reached its peak (the loan is priced at this moment).
     peakAt: number;
-    // Proof for anyone checking the import (F15): first borrow, the borrow that set the peak,
+    // Proof for anyone checking the import: first borrow, the borrow that set the peak,
     // and the repay or liquidation that closed the loan.
     openSignature: string;
     peakSignature: string;
