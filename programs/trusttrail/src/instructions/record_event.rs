@@ -104,17 +104,7 @@ pub fn handle_record_event(
         }
     }
 
-    let native = native_component(rep.s_plus_bps, rep.s_minus_bps);
-    rep.native_score = native;
-    rep.score = blend(native, rep.imported_score, rep.exposure_bps);
-    rep.tier = compute_tier(
-        rep.score,
-        rep.meaningful_on_time,
-        rep.meaningful_weight_bps,
-        rep.last_liquidation_date,
-        now,
-    );
-    rep.last_update = now;
+    rep.refresh(now);
 
     let a  = &ctx.accounts;
 

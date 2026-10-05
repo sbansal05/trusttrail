@@ -4,7 +4,6 @@ use crate::terms::*;
 use crate::transfers::{pool_transfer, user_transfer};
 use crate::*;
 use anchor_spl::token::{Token, TokenAccount};
-use trusttrail::scoring::{blend, compute_tier, decay_bps, native_component};
 use trusttrail::state::UserReputationV2;
 
 #[derive(Accounts)]
@@ -61,10 +60,7 @@ pub struct Borrow<'info> {
 
 /// Tier right now: the stored score is a cache, so recompute it with today's penalty decay.
 pub fn current_tier(rep: &UserReputationV2, now: i64) -> u8 {
-    let s_minus = decay_bps(rep.s_minus_bps, rep.s_minus_at, now);
-    let native = native_component(rep.s_plus_bps, s_minus);
-    let score = blend(native, rep.imported_score, rep.exposure_bps);
-    compute_tier(score, rep.meaningful_on_time, rep.meaningful_weight_bps, rep.last_liquidation_date, now)
+    rep.standing(now).2
 }
 
 pub fn handle_borrow(ctx: Context<Borrow>, amount: u64, collateral_amount: u64) -> Result<()> {

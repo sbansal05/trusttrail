@@ -100,3 +100,5 @@ pub const DUE_DATE_FACTOR_BPS: u64 = 10_000;
 pub const NO_DUE_DATE_FACTOR_BPS: u64 = 5_000;
 pub const SILVER_MIN_WEIGHT_BPS: u64 = 30_000; 
 pub const GOLD_MIN_WEIGHT_BPS: u64 = 80_000;   
+/// A wallet may import its outside history again 30 days after the last import.
+pub const IMPORT_COOLDOWN_SECS: i64 = 15 * 86_400;

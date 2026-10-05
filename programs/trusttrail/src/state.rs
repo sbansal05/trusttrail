@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-
+use crate::scoring::{blend, compute_tier, decay_bps, native_component};
 #[account]
 pub struct GlobalConfig {
     pub authority: Pubkey,
@@ -46,4 +46,24 @@ pub struct WriterWhitelist {
     #[max_len(10)]
     pub signers: Vec<Pubkey>,
     pub bump: u8,
+}
+impl UserReputationV2 {
+    /// (native score, final score, tier) as of `now`, with the penalty decayed to `now`.
+    /// Read-only: the pool calls this at borrow time.
+    pub fn standing(&self, now: i64) -> (u16, u16, u8) {
+    let s_minus = decay_bps(self.s_minus_bps, self.s_minus_at, now);
+    let native = native_component(self.s_plus_bps, s_minus);
+    let score = blend(native, self.imported_score, self.exposure_bps);
+    let tier = compute_tier(score, self.meaningful_on_time, self.meaningful_weight_bps, self.last_liquidation_date, now);
+    (native, score, tier)
+    }
+
+    /// Stores `standing(now)` in the account (the cached score other apps read).
+    pub fn refresh(&mut self, now: i64) {
+        let (native, score, tier) = self.standing(now);
+        self.native_score = native;
+        self.score = score;
+        self.tier = tier;
+        self.last_update = now;
+    }
 }

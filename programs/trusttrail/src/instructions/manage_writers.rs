@@ -66,3 +66,10 @@ pub fn handle_add_writer(ctx: Context<AddWriter>, writer: Pubkey) -> Result<()> 
 
     Ok(())
 }
+/// Takes a writer off the whitelist (e.g. a leaked backend key). Same accounts as `add_writer`.
+pub fn handle_remove_writer(ctx: Context<AddWriter>, writer: Pubkey) -> Result<()> {
+    let list = &mut ctx.accounts.whitelist;
+    let at = (list.signers.iter().position(|w| *w == writer)).ok_or(ErrorCode::WriterNotFound)?;
+    list.signers.remove(at);
+    Ok(())
+}

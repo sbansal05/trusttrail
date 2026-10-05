@@ -9,3 +9,6 @@ pub use manage_writers::*;
 
 pub mod record_event;
 pub use record_event::*;
+
+pub mod set_imported_score;
+pub use set_imported_score::*;

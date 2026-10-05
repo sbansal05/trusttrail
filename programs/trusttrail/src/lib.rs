@@ -44,7 +44,18 @@ pub mod trusttrail {
     ) -> Result<()> {
         crate::instructions::handle_add_writer(ctx, writer)
     }
-
+    pub fn remove_writer(ctx: Context<AddWriter>, writer: Pubkey) -> Result<()> {
+        crate::instructions::handle_remove_writer(ctx, writer)
+    }
+    pub fn set_imported_score(
+        ctx: Context<SetImportedScore>,
+        score: u16,
+        meaningful_on_time: u16,
+        meaningful_weight_bps: u64,
+    ) -> Result<()> {
+        crate::instructions::handle_set_imported_score(ctx, score, meaningful_on_time, meaningful_weight_bps)
+    }
+    
     pub fn record_event(
         ctx: Context<RecordEvent>,
         principal_usdc: u64,

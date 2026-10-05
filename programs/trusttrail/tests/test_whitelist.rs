@@ -171,3 +171,43 @@ fn whitelist_rejects_the_eleventh_writer() {
 
     assert_eq!(read_whitelist(&svm).signers.len(), trusttrail::constants::MAX_WRITERS);
 }
+fn remove_writer_ix(authority: Pubkey, global_config: Pubkey, writer: Pubkey) -> Instruction {
+    Instruction::new_with_bytes(
+        trusttrail::id(),
+        &trusttrail::instruction::RemoveWriter { writer }.data(),
+        trusttrail::accounts::AddWriter { authority, global_config, whitelist: whitelist_pda() }
+            .to_account_metas(None),
+    )
+}
+
+#[test]
+fn admin_removes_a_writer() {
+    let (mut svm, admin, global_config) = setup();
+    assert!(send(&mut svm, &admin, init_whitelist_ix(admin.pubkey(), global_config)));
+    let (a, b) = (Pubkey::new_unique(), Pubkey::new_unique());
+    assert!(send(&mut svm, &admin, add_writer_ix(admin.pubkey(), global_config, a)));
+    assert!(send(&mut svm, &admin, add_writer_ix(admin.pubkey(), global_config, b)));
+
+    assert!(send(&mut svm, &admin, remove_writer_ix(admin.pubkey(), global_config, a)));
+    assert_eq!(read_whitelist(&svm).signers, vec![b]);
+}
+
+#[test]
+fn non_admin_cannot_remove_a_writer() {
+    let (mut svm, admin, global_config) = setup();
+    assert!(send(&mut svm, &admin, init_whitelist_ix(admin.pubkey(), global_config)));
+    let writer = Pubkey::new_unique();
+    assert!(send(&mut svm, &admin, add_writer_ix(admin.pubkey(), global_config, writer)));
+
+    let stranger = Keypair::new();
+    svm.airdrop(&stranger.pubkey(), 1_000_000_000).unwrap();
+    assert!(!send(&mut svm, &stranger, remove_writer_ix(stranger.pubkey(), global_config, writer)));
+    assert_eq!(read_whitelist(&svm).signers, vec![writer]);
+}
+
+#[test]
+fn removing_an_unknown_writer_fails() {
+    let (mut svm, admin, global_config) = setup();
+    assert!(send(&mut svm, &admin, init_whitelist_ix(admin.pubkey(), global_config)));
+    assert!(!send(&mut svm, &admin, remove_writer_ix(admin.pubkey(), global_config, Pubkey::new_unique())));
+}
