@@ -5,6 +5,7 @@ import { Connection, PublicKey, SYSVAR_CLOCK_PUBKEY } from "@solana/web3.js";
 
 export const TRUSTTRAIL_PROGRAM_ID = new PublicKey("BtgvVKaXQMJsRUdZ8ahuBftnwDpYtass15TqTwsJJA9s");
 const USER_REPUTATION_V2_SEED = Buffer.from("trust-v2");
+const WRITER_WHITELIST_SEED = Buffer.from("writer_whitelist");
 
 /** Anchor account discriminator: first 8 bytes of sha256("account:<Name>"). */
 const REPUTATION_DISCRIMINATOR = createHash("sha256").update("account:UserReputationV2").digest().subarray(0, 8);
@@ -17,6 +18,10 @@ const CLOCK_UNIX_TIMESTAMP_OFFSET = 32;
 
 export function reputationPda(wallet: PublicKey): PublicKey {
     return PublicKey.findProgramAddressSync([USER_REPUTATION_V2_SEED, wallet.toBuffer()], TRUSTTRAIL_PROGRAM_ID)[0];
+}
+
+export function whitelistPda(): PublicKey {
+    return PublicKey.findProgramAddressSync([WRITER_WHITELIST_SEED], TRUSTTRAIL_PROGRAM_ID)[0];
 }
 
 /** import_date from raw UserReputationV2 data. */
@@ -32,16 +37,19 @@ export function parseClockTime(data: Buffer): number {
     return Number(data.readBigInt64LE(CLOCK_UNIX_TIMESTAMP_OFFSET));
 }
 
-/** The wallet's previous import date, or 0 if it has never imported (or has no reputation account yet). */
-export async function readImportDate(connection: Connection, wallet: PublicKey): Promise<number> {
+/** Only the reads the import needs, so tests can pass a fake. */
+export type ChainReader = Pick<Connection, "getAccountInfo">;
+
+/** Whether the wallet's reputation account exists, and its import_date (0 = never imported). */
+export async function readReputation(connection: ChainReader, wallet: PublicKey): Promise<{ exists: boolean; importDate: number }> {
     const info = await connection.getAccountInfo(reputationPda(wallet));
-    if (!info) return 0;
+    if (!info) return { exists: false, importDate: 0 };
     if (!info.owner.equals(TRUSTTRAIL_PROGRAM_ID)) throw new Error("reputation account has the wrong owner");
-    return parseImportDate(info.data);
+    return { exists: true, importDate: parseImportDate(info.data) };
 }
 
 /** Cluster time from the Clock sysvar, so the decay uses the clock the program uses for import_date. */
-export async function clusterTime(connection: Connection): Promise<number> {
+export async function clusterTime(connection: ChainReader): Promise<number> {
     const info = await connection.getAccountInfo(SYSVAR_CLOCK_PUBKEY);
     if (!info) throw new Error("clock sysvar not found");
     return parseClockTime(info.data);

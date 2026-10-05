@@ -1,3 +1,8 @@
+//! Postgres storage for the public import history.
+//! One `imports` row per import (first or repeat), one `import_loans` row per loan in it.
+//! An import is saved as pending when it is planned and becomes confirmed once its transaction lands.
+//! Only confirmed imports are public. Every import is kept, so any past on-chain score can be checked.
+
 import type { Pool, PoolClient } from "pg";
 import type { ImportPlan } from "./importPlan";
 import type { PricedLoan, PriceSource } from "./prices";
@@ -15,10 +20,14 @@ CREATE TABLE IF NOT EXISTS imports (
     previous_import_date  BIGINT      NOT NULL,
     computed_at           BIGINT      NOT NULL,
     new_loans             INTEGER     NOT NULL,
+    tx_message            TEXT,
+    last_valid_height     BIGINT,
     tx_signature          TEXT,
     created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
     confirmed_at          TIMESTAMPTZ
 );
+ALTER TABLE imports ADD COLUMN IF NOT EXISTS tx_message TEXT;
+ALTER TABLE imports ADD COLUMN IF NOT EXISTS last_valid_height BIGINT;
 CREATE INDEX IF NOT EXISTS imports_wallet_idx ON imports (wallet, id);
 
 CREATE TABLE IF NOT EXISTS import_loans (
@@ -88,21 +97,34 @@ function loanValues(importId: string, l: Loan, p: PricedLoan | null): unknown[] 
     ];
 }
 
-/** Saves a planned import as pending and returns its id. */
-export async function savePending(pool: Pool, wallet: string, plan: ImportPlan): Promise<string> {
+export type PendingTx = { message: string; lastValidBlockHeight: number };
+
+
+export async function savePending(pool: Pool, wallet: string, plan: ImportPlan, tx: PendingTx): Promise<string> {
     return inTransaction(pool, async (c) => {
+        await c.query(`DELETE FROM imports WHERE wallet = $1 AND status = 'pending'`, [wallet]);
         const { rows } = await c.query(
             `INSERT INTO imports (wallet, status, score, meaningful_on_time, meaningful_weight_bps,
-                                  previous_import_date, computed_at, new_loans)
-             VALUES ($1, 'pending', $2, $3, $4, $5, $6, $7) RETURNING id`,
+                                  previous_import_date, computed_at, new_loans, tx_message, last_valid_height)
+             VALUES ($1, 'pending', $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
             [wallet, Number(plan.score), plan.meaningfulOnTime, plan.meaningfulWeightBps.toString(),
-             plan.previousImportDate, plan.computedAt, plan.newLoans],
+             plan.previousImportDate, plan.computedAt, plan.newLoans, tx.message, tx.lastValidBlockHeight],
         );
         const id = String(rows[0].id);
         for (const p of plan.priced) await c.query(INSERT_LOAN, loanValues(id, p, p));
         for (const d of plan.dropped) await c.query(INSERT_LOAN, loanValues(id, d, null));
         return id;
     });
+}
+
+/** The transaction of a pending import, or null if there is no such pending import. */
+export async function pendingTx(pool: Pool, importId: string): Promise<PendingTx | null> {
+    const { rows } = await pool.query(
+        `SELECT tx_message, last_valid_height FROM imports WHERE id = $1 AND status = 'pending'`,
+        [importId],
+    );
+    if (rows.length === 0) return null;
+    return { message: rows[0].tx_message, lastValidBlockHeight: Number(rows[0].last_valid_height) };
 }
 
 /** Marks a pending import confirmed with its on-chain transaction. Returns false if it was not pending. */
@@ -115,7 +137,6 @@ export async function confirmImport(pool: Pool, importId: string, txSignature: s
     return rowCount === 1;
 }
 
-// ---------- Public view ----------
 
 export type PublicLoan = {
     protocol: string;

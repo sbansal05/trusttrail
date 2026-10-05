@@ -4,7 +4,7 @@ import type { AddressInfo } from "node:net";
 import express from "express";
 import { newDb } from "pg-mem";
 import type { Pool } from "pg";
-import { migrate, savePending, confirmImport, importHistory } from "./store";
+import { migrate, savePending, confirmImport, importHistory, pendingTx } from "./store";
 import { importHistoryRouter } from "./routes";
 import { planImport } from "./importPlan";
 import type { PricedLoan } from "./prices";
@@ -13,6 +13,7 @@ import type { Loan } from "./types";
 const WALLET = "So11111111111111111111111111111111111111112";
 const DAY = 86_400;
 const T0 = 1_735_689_600;
+const TX = { message: "MSG", lastValidBlockHeight: 100 };
 
 const loan = (usd: bigint, closedAt: number, outcome: Loan["outcome"] = 0, sig = "s"): Loan => ({
     protocol: "kamino", wallet: WALLET, position: "P", mint: "M", decimals: 6, principal: usd * 1_000_000n,
@@ -36,13 +37,13 @@ const firstPlan = () =>
 
 test("a pending import is not public", async () => {
     const pool = await freshPool();
-    await savePending(pool, WALLET, firstPlan());
+    await savePending(pool, WALLET, firstPlan(), TX);
     assert.deepEqual(await importHistory(pool, WALLET, true), []);
 });
 
 test("a confirmed import is public with every loan, priced and unpriced", async () => {
     const pool = await freshPool();
-    const id = await savePending(pool, WALLET, firstPlan());
+    const id = await savePending(pool, WALLET, firstPlan(), TX);
     assert.equal(await confirmImport(pool, id, "TX1"), true);
 
     const [imp] = await importHistory(pool, WALLET, true);
@@ -63,7 +64,7 @@ test("a confirmed import is public with every loan, priced and unpriced", async 
 
 test("an import can be confirmed only once", async () => {
     const pool = await freshPool();
-    const id = await savePending(pool, WALLET, firstPlan());
+    const id = await savePending(pool, WALLET, firstPlan(), TX);
     assert.equal(await confirmImport(pool, id, "TX1"), true);
     assert.equal(await confirmImport(pool, id, "TX2"), false);
     assert.equal((await importHistory(pool, WALLET, true))[0].txSignature, "TX1");
@@ -71,9 +72,9 @@ test("an import can be confirmed only once", async () => {
 
 test("every import is kept: latest by default, all newest first on request", async () => {
     const pool = await freshPool();
-    const first = await savePending(pool, WALLET, firstPlan());
+    const first = await savePending(pool, WALLET, firstPlan(), TX);
     await confirmImport(pool, first, "TX1");
-    const second = await savePending(pool, WALLET, planImport([priced(loan(500n, T0))], [], T0 + 30 * DAY, T0 + 50 * DAY));
+    const second = await savePending(pool, WALLET, planImport([priced(loan(500n, T0))], [], T0 + 30 * DAY, T0 + 50 * DAY), TX);
     await confirmImport(pool, second, "TX2");
 
     const latest = await importHistory(pool, WALLET, true);
@@ -92,7 +93,7 @@ test("GET /import-history/:wallet: 400 for a bad wallet, 404 with no import, 200
         assert.equal((await fetch(`${base}/import-history/not-a-wallet`)).status, 400);
         assert.equal((await fetch(`${base}/import-history/${WALLET}`)).status, 404);
 
-        const id = await savePending(pool, WALLET, firstPlan());
+        const id = await savePending(pool, WALLET, firstPlan(), TX);
         await confirmImport(pool, id, "TX1");
         const res = await fetch(`${base}/import-history/${WALLET}`);
         assert.equal(res.status, 200);
@@ -102,4 +103,21 @@ test("GET /import-history/:wallet: 400 for a bad wallet, 404 with no import, 200
     } finally {
         server.close();
     }
+});
+
+test("a new prepare replaces the wallet's older pending import", async () => {
+    const pool = await freshPool();
+    const old = await savePending(pool, WALLET, firstPlan(), { message: "OLD", lastValidBlockHeight: 1 });
+    const fresh = await savePending(pool, WALLET, firstPlan(), { message: "NEW", lastValidBlockHeight: 2 });
+    assert.equal(await pendingTx(pool, old), null);
+    assert.deepEqual(await pendingTx(pool, fresh), { message: "NEW", lastValidBlockHeight: 2 });
+    assert.equal(await confirmImport(pool, old, "TX"), false);
+});
+
+test("confirmed imports are never deleted by a new prepare", async () => {
+    const pool = await freshPool();
+    const first = await savePending(pool, WALLET, firstPlan(), TX);
+    await confirmImport(pool, first, "TX1");
+    await savePending(pool, WALLET, firstPlan(), TX);
+    assert.equal((await importHistory(pool, WALLET, false)).length, 1);
 });
