@@ -13,3 +13,8 @@ test-ledger
 .env
 backend/.env
 backend/node_modules
+
+# any env file or editor backup of it
+.env*
+backend/.env*
+!.env.example
