@@ -66,12 +66,21 @@ export async function priceAt(mint: string, at: number, sources: PriceSources): 
     return gap(birdeye, at) < gap(binance, at) ? birdeye : binance; 
 }
 
-/** Price every loan at its peak. Loans with no price at all are dropped, liquidations too . */
+/** Loans of the same mint whose peaks fall in the same minute share one price lookup. */
+export const PRICE_CACHE_SECS = 60;
+
+/**
+ * Price every loan at its peak. Loans with no price at all are dropped, liquidations too.
+ * Each loan still records its own gap to the price it got.
+ */
 export async function priceLoans(loans: Loan[], sources: PriceSources): Promise<{ priced: PricedLoan[]; dropped: Loan[] }> {
     const priced: PricedLoan[] = [];
     const dropped: Loan[] = [];
+    const cache = new Map<string, PricePoint | null>();
     for (const l of loans) {
-        const p = await priceAt(l.mint, l.peakAt, sources);
+        const key = `${l.mint}:${Math.floor(l.peakAt / PRICE_CACHE_SECS)}`;
+        if (!cache.has(key)) cache.set(key, await priceAt(l.mint, l.peakAt, sources));
+        const p = cache.get(key)!;
         if (!p) {
             dropped.push(l);
             continue;

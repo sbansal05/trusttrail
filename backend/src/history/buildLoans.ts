@@ -67,3 +67,13 @@ function close(o: OpenLoan, end: CreditEvent, outcome: Loan["outcome"]): Loan {
         endSignature: end.signature,
     };
 }
+
+
+/**
+ * Loans repaid in the transaction that opened them (flash loans, arbitrage bots) put nothing at risk and
+ * score nothing (duration 0), so they are removed before pricing. Liquidations are always kept.
+ */
+export function withoutSameTransaction(loans: Loan[]): { kept: Loan[]; sameTransaction: number } {
+    const kept = loans.filter((l) => l.outcome >= 2 || l.openSignature !== l.endSignature);
+    return { kept, sameTransaction: loans.length - kept.length };
+}

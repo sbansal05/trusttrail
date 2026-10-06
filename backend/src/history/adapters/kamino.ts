@@ -1,8 +1,10 @@
-import bs58 from "bs58";
-import { CreditEvent } from "../types";
-import { KAMINO_PROGRAM_ID, getInstructionName } from "../../getObligations";
-import { TransactionList } from "../../heliusClient";
+//! Kamino Lend: borrow, repay and liquidation, from top-level and inner instructions.
+
+import type { CreditEvent } from "../types";
+import { KAMINO_PROGRAM_ID, kaminoInstructionName } from "../../getObligations";
 import { getAllTransactions } from "../../heliusClient";
+import { instructions, mintDecimals, signatureOf, timeOf, walletEvents, type Adapter, type Tx } from "./common";
+
 type Layout = { kind: CreditEvent["kind"]; mintIndex: number };
 
 /** Account positions from the klend IDL. The obligation is always account 1. */
@@ -17,78 +19,34 @@ const LAYOUTS: Record<string, Layout> = {
 };
 const OBLIGATION_INDEX = 1;
 
-export function kaminoEvents(wallet: string, txs: TransactionList): CreditEvent[] {
-    const events: CreditEvent[] = [];
-
-    for (const tx of txs) {
-        const meta = (tx as any).meta;
-        const message = (tx.transaction as any).message;
-
-        if (meta.err != null) continue;
-
-        
-        const allKeys: string[] = [
-            ...message.accountKeys,
-            ...(meta.loadedAddresses?.writable ?? []),
-            ...(meta.loadedAddresses?.readonly ?? []),
-        ];
-
-        message.instructions.forEach((ix: any) => {
-            if (message.accountKeys[ix.programIdIndex] !== KAMINO_PROGRAM_ID) return;
-            const name = getInstructionName(ix.data);
+export const kamino: Adapter = {
+    protocol: "kamino",
+    events(wallet: string, tx: Tx): CreditEvent[] {
+        const out: CreditEvent[] = [];
+        for (const ix of instructions(tx)) {
+            if (ix.program !== KAMINO_PROGRAM_ID) continue;
+            const name = kaminoInstructionName(ix.data);
             const layout = name ? LAYOUTS[name] : undefined;
-            if (!layout) return;
-
-            const data = Buffer.from(bs58.decode(ix.data));
-
-            const amount = data.readBigUInt64LE(8);
-
-            
-            const position = allKeys[ix.accounts[OBLIGATION_INDEX]];
-            const mint = allKeys[ix.accounts[layout.mintIndex]];
-
-            events.push({
+            if (!layout) continue;
+            const mint = ix.accounts[layout.mintIndex];
+            out.push({
                 protocol: "kamino",
                 wallet,
-                position,
+                position: ix.accounts[OBLIGATION_INDEX],
                 kind: layout.kind,
                 mint,
-                amount,
-                decimals: mintDecimals(meta, mint),
-                timestamp: tx.blockTime ?? 0,
-                signature: (tx.transaction as any).signatures[0],
+                amount: ix.data.readBigUInt64LE(8),
+                decimals: mintDecimals(tx, mint),
+                timestamp: timeOf(tx),
+                signature: signatureOf(tx),
                 dueAt: 0,
             });
-        });
-    }
-    return events;
-}
+        }
+        return out;
+    },
+};
 
-/** Decimals from the tx's token balances; USDC-style 6 if the mint isn't listed. */
-function mintDecimals(meta: any, mint: string): number {
-    const all = [...(meta?.preTokenBalances ?? []), ...(meta?.postTokenBalances ?? [])];
-    const hit = all.find((b: any) => b.mint === mint);
-    return hit ? hit.uiTokenAmount.decimals : 6;
-}
-
+/** Kamino only (kept for the old debug scripts). */
 export async function kaminoHistory(wallet: string): Promise<CreditEvent[]> {
-    const events = kaminoEvents(wallet, await getAllTransactions(wallet));
-
-    const positions = new Set(events.map(e => e.position));
-
-    for (const position of positions) {
-        const txns = await getAllTransactions(position);
-        const liquidations = kaminoEvents(wallet, txns).filter(e => e.kind === "liquidation");
-        events.push(...liquidations);
-    }
-
-    const seen = new Set<string>();
-    return events.filter((e) => {
-        const key = `${e.signature}:${e.kind}:${e.mint}:${e.amount}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-    })
-
-
+    return walletEvents(wallet, [kamino], getAllTransactions);
 }

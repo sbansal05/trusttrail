@@ -10,7 +10,7 @@ import { createPool } from "./history/db";
 import { migrate } from "./history/store";
 import { importHistoryRouter, importRouter } from "./history/routes";
 import { liveSources } from "./history/prices";
-import { kaminoHistory } from "./history/adapters/kamino";
+import { walletHistory } from "./history/adapters";
 import { buildLoans } from "./history/buildLoans";
 
 function required(name: string): string {
@@ -36,7 +36,7 @@ app.use(
         connection,
         writer,
         prices: liveSources(),
-        history: async (wallet) => buildLoans(await kaminoHistory(wallet)),
+        history: async (wallet) => buildLoans(await walletHistory(wallet)),
     }),
 );
 

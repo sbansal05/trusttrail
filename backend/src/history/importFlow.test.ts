@@ -54,8 +54,7 @@ function clockData(now: number): Buffer {
 }
 
 /** A fake chain + an in-memory database. `importDate` null = the wallet has no reputation account yet. */
-async function setup(importDate: number | null, opts: { failOnChain?: boolean } = {}) {
-    const { Pool } = newDb().adapters.createPg();
+async function setup(importDate: number | null, opts: { failOnChain?: boolean; history?: Loan[] } = {}) {    const { Pool } = newDb().adapters.createPg();
     const pool = new Pool() as Pool;
     await migrate(pool);
     const sent: Buffer[] = [];
@@ -74,7 +73,7 @@ async function setup(importDate: number | null, opts: { failOnChain?: boolean } 
     } as unknown as ImportDeps["connection"];
     const deps: ImportDeps = {
         pool, connection, writer, prices,
-        history: async () => { historyCalls++; return HISTORY; },
+        history: async () => { historyCalls++; return opts.history ?? HISTORY; },
     };
     return { deps, pool, sent, historyCalls: () => historyCalls };
 }
@@ -142,6 +141,15 @@ test("new wallet: one transaction creates the account and imports; the wallet pa
     assert.equal(sigs.get(WALLET), null);                 // the wallet has not yet
     assert.equal(p.meaningfulOnTime, 2);
     assert.deepEqual(await importHistory(pool, WALLET, true), []); // pending is not public
+});
+
+test("loans repaid in the same transaction are skipped before pricing and only counted", async () => {
+    const flash = { ...loan(NOW - 20 * DAY, "f"), openSignature: "flash", endSignature: "flash" };
+    const { deps } = await setup(null, { history: [...HISTORY, flash, flash] });
+    const p = await prepareImport(deps, WALLET);
+    assert.equal(p.sameTransactionLoans, 2);
+    assert.equal(p.pricedLoans, 2);
+    assert.equal(p.meaningfulOnTime, 2);
 });
 
 test("existing wallet: only set_imported_score, counts only loans closed after the last import", async () => {

@@ -37,10 +37,12 @@ for (const ix of (klendIdl as any).instructions) {
     DISCRIMINATOR_MAP.set(computeDiscriminator(camelToSnake(ix.name)), ix.name);
 }
 
+export function kaminoInstructionName(bytes: Uint8Array): string | undefined {
+    return DISCRIMINATOR_MAP.get(Buffer.from(bytes.slice(0, 8)).toString("hex"));
+}
+
 export function getInstructionName(rawData: string): string | undefined {
-    const bytes = bs58.decode(rawData);
-    const discriminatorHex = Buffer.from(bytes.slice(0, 8)).toString("hex");
-    return DISCRIMINATOR_MAP.get(discriminatorHex);
+    return kaminoInstructionName(bs58.decode(rawData));
 }
 
 type KaminoActionCounts = Record<"borrow" | "repay" | "liquidate" | "collateral", number>;

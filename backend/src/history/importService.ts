@@ -4,6 +4,7 @@ import type { Pool } from "pg";
 import { clusterTime, readReputation } from "./chain";
 import { planImport } from "./importPlan";
 import { buildImportTx } from "./importTx";
+import { withoutSameTransaction } from "./buildLoans";
 import { priceLoans, type PriceSources } from "./prices";
 import { confirmImport, pendingTx, savePending } from "./store";
 import type { Loan } from "./types";
@@ -35,6 +36,7 @@ export type PreparedImport = {
     newLoans: number;
     pricedLoans: number;
     unpricedLoans: number;
+    sameTransactionLoans: number;
     createsAccount: boolean;
 };
 
@@ -48,8 +50,8 @@ export async function prepareImport(deps: ImportDeps, walletAddress: string): Pr
         throw new ImportError(429, "import cooldown has not passed", { nextImportAt: importDate + IMPORT_COOLDOWN_SECS });
     }
 
-    const loans = await deps.history(walletAddress);
-    const { priced, dropped } = await priceLoans(loans, deps.prices);
+    const { kept, sameTransaction } = withoutSameTransaction(await deps.history(walletAddress));
+    const { priced, dropped } = await priceLoans(kept, deps.prices);
     const plan = planImport(priced, dropped, importDate, now);
 
     const { blockhash, lastValidBlockHeight } = await deps.connection.getLatestBlockhash("confirmed");
@@ -67,6 +69,7 @@ export async function prepareImport(deps: ImportDeps, walletAddress: string): Pr
         newLoans: plan.newLoans,
         pricedLoans: priced.length,
         unpricedLoans: dropped.length,
+        sameTransactionLoans: sameTransaction,
         createsAccount: !exists,
     };
 }

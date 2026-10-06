@@ -108,3 +108,16 @@ test("if Birdeye has nothing, the far Binance price is kept and its gap recorded
     assert.equal(priced[0].priceSource, "binance");
     assert.equal(priced[0].priceGapSecs, 180 * DAY);
 });
+
+test("loans of one mint peaking in the same minute share one lookup; each keeps its own gap", async () => {
+    let calls = 0;
+    const counting: PriceSources = {
+        async binance(_symbol, at) { calls++; return { price: px("189.31"), at, source: "binance" }; },
+        async birdeye() { return null; },
+    };
+    const minute = Math.floor(T0 / 60) * 60;
+    const at = (peakAt: number, mint = SOL): Loan => ({ ...loan(mint, 1_000_000_000n, 9), peakAt });
+    const { priced } = await priceLoans([at(minute + 5), at(minute + 50), at(minute + 65), at(minute + 5, USDC)], counting);
+    assert.equal(calls, 3); // SOL minute 1, SOL minute 2, USDC
+    assert.deepEqual(priced.map((l) => l.priceGapSecs), [0, 45, 0, 0]);
+});
