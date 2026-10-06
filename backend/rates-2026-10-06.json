@@ -1,0 +1,346 @@
+{
+  "fetchedAt": "2026-10-06T06:05:33.178Z",
+  "Kamino API (Main Market USDC)": {
+    "reserve": "D6q6wuQSrifJKZYpR1M8R4YawnLDtDsMmWM1NbBmgJ59",
+    "borrowApy": 0.05981152635150022,
+    "supplyApy": 0.04470847826237856,
+    "utilization": 0.9153635195539127,
+    "totalBorrowUsd": 111022212.80567856,
+    "totalSupplyUsd": 121287565.46883518
+  },
+  "Kamino on-chain curve (Main Market USDC)": {
+    "reserve": "D6q6wuQSrifJKZYpR1M8R4YawnLDtDsMmWM1NbBmgJ59",
+    "utilization": 0.913548527162908,
+    "protocolTakeRatePct": 10,
+    "points": [
+      {
+        "utilizationBps": 0,
+        "borrowRateBps": 0
+      },
+      {
+        "utilizationBps": 9500,
+        "borrowRateBps": 551
+      },
+      {
+        "utilizationBps": 10000,
+        "borrowRateBps": 3634
+      }
+    ]
+  },
+  "Jupiter Lend (USDC borrow vaults)": [
+    {
+      "collateral": "WSOL",
+      "borrowRate": "481",
+      "supplyRate": "403",
+      "borrowLimitUtilization": "525741270951273"
+    },
+    {
+      "collateral": "syrupUSDC",
+      "borrowRate": "481",
+      "supplyRate": "0",
+      "borrowLimitUtilization": "525741270951273"
+    },
+    {
+      "collateral": "JLP",
+      "borrowRate": "481",
+      "supplyRate": "0",
+      "borrowLimitUtilization": "525741270951273"
+    },
+    {
+      "collateral": "xBTC",
+      "borrowRate": "481",
+      "supplyRate": "0",
+      "borrowLimitUtilization": "525741270951273"
+    },
+    {
+      "collateral": "cbBTC",
+      "borrowRate": "481",
+      "supplyRate": "0",
+      "borrowLimitUtilization": "525741270951273"
+    },
+    {
+      "collateral": "JupSOL",
+      "borrowRate": "481",
+      "supplyRate": "0",
+      "borrowLimitUtilization": "525741270951273"
+    },
+    {
+      "collateral": "JitoSOL",
+      "borrowRate": "481",
+      "supplyRate": "0",
+      "borrowLimitUtilization": "525741270951273"
+    },
+    {
+      "collateral": "WBTC",
+      "borrowRate": "481",
+      "supplyRate": "0",
+      "borrowLimitUtilization": "525741270951273"
+    },
+    {
+      "collateral": "JUP",
+      "borrowRate": "591",
+      "supplyRate": "0",
+      "borrowLimitUtilization": "525741270951273"
+    },
+    {
+      "collateral": "LBTC",
+      "borrowRate": "481",
+      "supplyRate": "0",
+      "borrowLimitUtilization": "525741270951273"
+    },
+    {
+      "collateral": "INF",
+      "borrowRate": "481",
+      "supplyRate": "0",
+      "borrowLimitUtilization": "525741270951273"
+    },
+    {
+      "collateral": "PST",
+      "borrowRate": "541",
+      "supplyRate": "0",
+      "borrowLimitUtilization": "525741270951273"
+    },
+    {
+      "collateral": "mSOL",
+      "borrowRate": "481",
+      "supplyRate": "0",
+      "borrowLimitUtilization": "525741270951273"
+    },
+    {
+      "collateral": "dfdvSOL",
+      "borrowRate": "481",
+      "supplyRate": "0",
+      "borrowLimitUtilization": "525741270951273"
+    },
+    {
+      "collateral": "jlJUPUSD",
+      "borrowRate": "481",
+      "supplyRate": "0",
+      "borrowLimitUtilization": "525741270951273"
+    },
+    {
+      "collateral": "TSLAx",
+      "borrowRate": "481",
+      "supplyRate": "0",
+      "borrowLimitUtilization": "525741270951273"
+    },
+    {
+      "collateral": "SPYx",
+      "borrowRate": "481",
+      "supplyRate": "0",
+      "borrowLimitUtilization": "525741270951273"
+    },
+    {
+      "collateral": "QQQx",
+      "borrowRate": "481",
+      "supplyRate": "0",
+      "borrowLimitUtilization": "525741270951273"
+    },
+    {
+      "collateral": "NVDAx",
+      "borrowRate": "481",
+      "supplyRate": "0",
+      "borrowLimitUtilization": "525741270951273"
+    },
+    {
+      "collateral": "sUSDai",
+      "borrowRate": "331",
+      "supplyRate": "0",
+      "borrowLimitUtilization": "525741270951273"
+    }
+  ],
+  "DefiLlama (USDC, Kamino + Jupiter Lend)": [
+    {
+      "project": "kamino-lend",
+      "market": "SOL/BTC Market",
+      "supplyApy": 4.47302,
+      "borrowApy": 5.98249,
+      "utilization": 0.915581230722097,
+      "supplyUsd": 121043378
+    },
+    {
+      "project": "kamino-lend",
+      "market": "OnRe Market",
+      "supplyApy": 5.86105,
+      "borrowApy": 7.47628,
+      "utilization": 0.8777505864487866,
+      "supplyUsd": 73355084
+    },
+    {
+      "project": "kamino-lend",
+      "market": "Figure Market",
+      "supplyApy": 5.72903,
+      "borrowApy": 6.54537,
+      "utilization": 0.9763178918096842,
+      "supplyUsd": 37564730
+    },
+    {
+      "project": "kamino-lend",
+      "market": "Huma Market",
+      "supplyApy": 5.02264,
+      "borrowApy": 6.24306,
+      "utilization": 0.8991333186589282,
+      "supplyUsd": 31596965
+    },
+    {
+      "project": "kamino-lend",
+      "market": "JLP Market",
+      "supplyApy": 4.48036,
+      "borrowApy": 5.35861,
+      "utilization": 0.9329332282359359,
+      "supplyUsd": 20735052
+    },
+    {
+      "project": "kamino-lend",
+      "market": "Superstate Opening Bell Market",
+      "supplyApy": 4.0719,
+      "borrowApy": 4.77831,
+      "utilization": 0.9500788463142202,
+      "supplyUsd": 7926179
+    },
+    {
+      "project": "kamino-lend",
+      "market": "sUSDai Market",
+      "supplyApy": 5.09738,
+      "borrowApy": 6.31363,
+      "utilization": 0.9022917134665227,
+      "supplyUsd": 6623952
+    },
+    {
+      "project": "kamino-lend",
+      "market": "xStocks Market",
+      "supplyApy": 4.92176,
+      "borrowApy": 6.05326,
+      "utilization": 0.908319578822047,
+      "supplyUsd": 5691466
+    },
+    {
+      "project": "kamino-lend",
+      "market": "Nest Market",
+      "supplyApy": 2.61355,
+      "borrowApy": 4.35421,
+      "utilization": 0.6725923805442902,
+      "supplyUsd": 5540317
+    },
+    {
+      "project": "kamino-lend",
+      "market": "Obligate Market",
+      "supplyApy": 5.15685,
+      "borrowApy": 6.46309,
+      "utilization": 0.8920880088846975,
+      "supplyUsd": 5145026
+    },
+    {
+      "project": "kamino-lend",
+      "market": "AUTO Market",
+      "supplyApy": 5.95757,
+      "borrowApy": 6.98232,
+      "utilization": 0.95266117103515,
+      "supplyUsd": 4303782
+    },
+    {
+      "project": "kamino-lend",
+      "market": "OnRe Market",
+      "supplyApy": 7.14899,
+      "borrowApy": 8.00421,
+      "utilization": 0.9963938176324767,
+      "supplyUsd": 1509907
+    },
+    {
+      "project": "kamino-lend",
+      "market": "ZCASH Market",
+      "supplyApy": 6.35,
+      "borrowApy": 7.86327,
+      "utilization": 0.9037138634599641,
+      "supplyUsd": 940530
+    },
+    {
+      "project": "kamino-lend",
+      "market": "Maple Market",
+      "supplyApy": 2.17499,
+      "borrowApy": 3.15839,
+      "utilization": 0.7688436568989284,
+      "supplyUsd": 899560
+    },
+    {
+      "project": "kamino-lend",
+      "market": "HYPE Market",
+      "supplyApy": 4.43652,
+      "borrowApy": 6.2601,
+      "utilization": 0.7943471462523232,
+      "supplyUsd": 528901
+    },
+    {
+      "project": "kamino-lend",
+      "market": "Bitcoin Market",
+      "supplyApy": 4.47492,
+      "borrowApy": 6.85597,
+      "utilization": 0.8252101535344161,
+      "supplyUsd": 435277
+    },
+    {
+      "project": "kamino-lend",
+      "market": "reUSD Market",
+      "supplyApy": 4.4654,
+      "borrowApy": 5.45072,
+      "utilization": 0.9145723344445057,
+      "supplyUsd": 417277
+    },
+    {
+      "project": "kamino-lend",
+      "market": "Altcoins Market",
+      "supplyApy": 5.43653,
+      "borrowApy": 13.44128,
+      "utilization": 0.5247078464106845,
+      "supplyUsd": 323460
+    },
+    {
+      "project": "kamino-lend",
+      "market": "MF-ONE Market",
+      "supplyApy": 0,
+      "borrowApy": 2.50076,
+      "utilization": 0,
+      "supplyUsd": 138054
+    },
+    {
+      "project": "kamino-lend",
+      "market": "STRCx Market",
+      "supplyApy": 8.33091,
+      "borrowApy": 9.66366,
+      "utilization": 0.9638305418719212,
+      "supplyUsd": 126875
+    },
+    {
+      "project": "kamino-lend",
+      "market": "Apyx Market",
+      "supplyApy": 0,
+      "borrowApy": 1.00502,
+      "utilization": 0,
+      "supplyUsd": 92501
+    },
+    {
+      "project": "kamino-lend",
+      "market": "tGBP Market",
+      "supplyApy": 0.00085,
+      "borrowApy": 1.00713,
+      "utilization": 0.0009416025350837483,
+      "supplyUsd": 55225
+    },
+    {
+      "project": "kamino-lend",
+      "market": "Fartcoin Market",
+      "supplyApy": 1.13678,
+      "borrowApy": 6.60275,
+      "utilization": 0.22096961486355718,
+      "supplyUsd": 20668
+    },
+    {
+      "project": "kamino-lend",
+      "market": "JTO Market",
+      "supplyApy": 10.74876,
+      "borrowApy": 16.54695,
+      "utilization": 0.8334244396958704,
+      "supplyUsd": 20123
+    }
+  ]
+}
