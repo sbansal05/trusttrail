@@ -26,6 +26,8 @@ pub enum PoolError {
     LoanNotOpen,
     #[msg("Account does not belong to this loan")]
     WrongLoan,
-    #[msg("Loan is healthy and cannot be liquidated")]
+    #[msg("Loan is healthy and not in default, so it cannot be liquidated")]
     NotLiquidatable,
+    #[msg("Liquidation threshold and bonus do not fit together")]
+    InvalidRiskParams,
 }

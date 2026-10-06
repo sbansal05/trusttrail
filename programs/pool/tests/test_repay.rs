@@ -66,6 +66,24 @@ fn late_repay_is_recorded_late_and_does_not_raise_the_limit() {
 }
 
 #[test]
+fn repaying_after_the_grace_period_is_recorded_as_a_default() {
+    let mut m = market();
+    let b = borrowed_100(&mut m);
+    set_clock(&mut m.env.svm, T0 + 33 * DAY + 1); // due at day 30, grace ends at day 33
+
+    let ix = repay_ix(&m, &b, &b, 0);
+    assert!(send(&mut m.env.svm, &b.kp, ix));
+
+    // The borrower got the collateral back, but the record says default
+    let rep = reputation(&m, &b.kp.pubkey());
+    assert_eq!(rep.late_repaid_loans, 0);
+    assert_eq!(rep.liquidated_loans, 1);
+    assert_eq!(rep.last_liquidation_date, T0 + 33 * DAY + 1);
+    let state: BorrowerState = read(&m, &pda(&[BORROWER_SEED, b.kp.pubkey().as_ref()]));
+    assert_eq!(state.largest_repaid, 0);
+}
+
+#[test]
 fn a_loan_cannot_be_repaid_twice() {
     let mut m = market();
     let b = borrowed_100(&mut m);

@@ -50,22 +50,30 @@ fn unproven_cannot_borrow_over_100() {
 }
 
 #[test]
-fn gold_needs_only_115_percent() {
+fn gold_needs_only_120_percent() {
     let mut m = market();
     let b = new_borrower(&mut m, 2 * SOL, true);
-    let collateral = 766_666_667; // 0.7667 SOL ≈ $115
+    let collateral = 800_000_000; // 0.8 SOL = $120
     let ix = borrow_ix(&m, &b, 0, 100 * USDC, collateral);
     assert!(send(&mut m.env.svm, &b.kp, ix));
     let loan: Loan = read(&m, &loan_address(&b, 0));
     assert_eq!(loan.tier_at_open, 3);
-    assert_eq!(loan.collateral_ratio_bps, 11_500);
+    assert_eq!(loan.collateral_ratio_bps, 12_000);
+}
+
+#[test]
+fn gold_below_120_percent_is_refused() {
+    let mut m = market();
+    let b = new_borrower(&mut m, 2 * SOL, true);
+    let ix = borrow_ix(&m, &b, 0, 100 * USDC, 793_333_333); // ≈ $119
+    assert!(!send(&mut m.env.svm, &b.kp, ix));
 }
 
 #[test]
 fn the_same_collateral_is_not_enough_for_unproven() {
     let mut m = market();
     let b = new_borrower(&mut m, 2 * SOL, false);
-    let ix = borrow_ix(&m, &b, 0, 100 * USDC, 766_666_667);
+    let ix = borrow_ix(&m, &b, 0, 100 * USDC, 800_000_000);
     assert!(!send(&mut m.env.svm, &b.kp, ix));
 }
 

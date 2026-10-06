@@ -1,7 +1,9 @@
+use crate::error::PoolError;
+use crate::terms::valid_risk_params;
 use crate::*;
 use anchor_spl::token::{Mint, Token, TokenAccount};
 
-/// Admin adds a collateral token: its Pyth feed, which tiers may use it, and its vault.
+/// Admin adds a collateral token: its Pyth feed, which tiers may use it, its risk settings, and its vault.
 #[derive(Accounts)]
 pub struct AddCollateral<'info> {
     #[account(mut)]
@@ -29,7 +31,15 @@ pub struct AddCollateral<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handle_add_collateral(ctx: Context<AddCollateral>, feed_id: [u8; 32], min_tier: u8, max_age_secs: u32) -> Result<()> {
+pub fn handle_add_collateral(
+    ctx: Context<AddCollateral>,
+    feed_id: [u8; 32],
+    min_tier: u8,
+    max_age_secs: u32,
+    liq_threshold_bps: u16,
+    liq_bonus_bps: u16,
+) -> Result<()> {
+    require!(valid_risk_params(liq_threshold_bps, liq_bonus_bps), PoolError::InvalidRiskParams);
     let c = &mut ctx.accounts.config;
     c.mint = ctx.accounts.mint.key();
     c.vault = ctx.accounts.vault.key();
@@ -37,6 +47,8 @@ pub fn handle_add_collateral(ctx: Context<AddCollateral>, feed_id: [u8; 32], min
     c.min_tier = min_tier;
     c.max_age_secs = max_age_secs;
     c.decimals = ctx.accounts.mint.decimals;
+    c.liq_threshold_bps = liq_threshold_bps;
+    c.liq_bonus_bps = liq_bonus_bps;
     c.bump = ctx.bumps.config;
     Ok(())
 }

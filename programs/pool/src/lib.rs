@@ -26,8 +26,15 @@ pub mod pool {
         crate::instructions::handle_accrue_interest(ctx)
     }
 
-    pub fn add_collateral(ctx: Context<AddCollateral>, feed_id: [u8; 32], min_tier: u8, max_age_secs: u32) -> Result<()> {
-    crate::instructions::handle_add_collateral(ctx, feed_id, min_tier, max_age_secs)
+    pub fn add_collateral(
+        ctx: Context<AddCollateral>,
+        feed_id: [u8; 32],
+        min_tier: u8,
+        max_age_secs: u32,
+        liq_threshold_bps: u16,
+        liq_bonus_bps: u16,
+    ) -> Result<()> {
+        crate::instructions::handle_add_collateral(ctx, feed_id, min_tier, max_age_secs, liq_threshold_bps, liq_bonus_bps)
     }
 
     pub fn borrow(ctx: Context<Borrow>, amount: u64, collateral_amount: u64) -> Result<()> {

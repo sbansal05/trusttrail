@@ -24,7 +24,9 @@ pub const SOL: u64 = 1_000_000_000; // 9 decimals
 pub const SOL_PRICE: i64 = 15_000_000_000; // $150.00 with expo -8
 pub const MAX_AGE: u32 = 60;
 pub const DAY: i64 = 86_400;
-
+/// SOL's risk settings: liquidatable below 110% of the debt, 5% liquidation bonus.
+pub const SOL_THRESHOLD: u16 = 11_000;
+pub const SOL_BONUS: u16 = 500;
 pub struct Market {
     pub env: Env,
     pub sol_mint: Pubkey,
@@ -37,7 +39,7 @@ pub fn tt_pda(seeds: &[&[u8]]) -> Pubkey {
     Pubkey::find_program_address(seeds, &trusttrail::ID).0
 }
 
-/// Pool with 10,000 USDC from a lender, SOL accepted for every tier, a SOL/USD price,
+//// Pool with 10,000 USDC from a lender, SOL accepted for every tier, a SOL/USD price,
 /// and TrustTrail ready to accept the pool's records.
 pub fn market() -> Market {
     let mut env = setup();
@@ -48,20 +50,7 @@ pub fn market() -> Market {
     let sol_mint = CreateMint::new(&mut env.svm, &env.admin).decimals(9).send().unwrap();
     let config = pda(&[COLLATERAL_SEED, sol_mint.as_ref()]);
     let coll_vault = pda(&[COLL_VAULT_SEED, env.pool.as_ref(), sol_mint.as_ref()]);
-    let ix = Instruction::new_with_bytes(
-        pool::id(),
-        &pool::instruction::AddCollateral { feed_id: SOL_FEED, min_tier: 0, max_age_secs: MAX_AGE }.data(),
-        pool::accounts::AddCollateral {
-            authority: env.admin.pubkey(),
-            pool: env.pool,
-            mint: sol_mint,
-            config,
-            vault: coll_vault,
-            token_program: spl_token::ID,
-            system_program: system_program::ID,
-        }
-        .to_account_metas(None),
-    );
+    let ix = add_collateral_ix(&env, &sol_mint, SOL_THRESHOLD, SOL_BONUS);
     let admin = env.admin.insecure_clone();
     assert!(send(&mut env.svm, &admin, ix));
     enable_trusttrail(&mut env);
@@ -70,6 +59,31 @@ pub fn market() -> Market {
     let mut m = Market { env, sol_mint, config, coll_vault, price };
     set_price(&mut m, SOL_FEED, SOL_PRICE, 0, T0);
     m
+}
+
+/// Admin adds `mint` as collateral for every tier, priced by SOL_FEED, with its own threshold and bonus.
+pub fn add_collateral_ix(env: &Env, mint: &Pubkey, threshold_bps: u16, bonus_bps: u16) -> Instruction {
+    Instruction::new_with_bytes(
+        pool::id(),
+        &pool::instruction::AddCollateral {
+            feed_id: SOL_FEED,
+            min_tier: 0,
+            max_age_secs: MAX_AGE,
+            liq_threshold_bps: threshold_bps,
+            liq_bonus_bps: bonus_bps,
+        }
+        .data(),
+        pool::accounts::AddCollateral {
+            authority: env.admin.pubkey(),
+            pool: env.pool,
+            mint: *mint,
+            config: pda(&[COLLATERAL_SEED, mint.as_ref()]),
+            vault: pda(&[COLL_VAULT_SEED, env.pool.as_ref(), mint.as_ref()]),
+            token_program: spl_token::ID,
+            system_program: system_program::ID,
+        }
+        .to_account_metas(None),
+    )
 }
 
 /// Loads TrustTrail + SAS, creates TrustTrail's config and whitelist, and adds the pool PDA as a writer.

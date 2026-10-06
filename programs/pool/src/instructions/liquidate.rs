@@ -1,13 +1,14 @@
 use crate::error::PoolError;
 use crate::oracle::collateral_price;
-use crate::terms::{collateral_value, is_liquidatable, liquidation_split};
+use crate::terms::{collateral_value, in_default, is_liquidatable, liquidation_split};
 use crate::transfers::{pool_transfer, user_transfer};
 use crate::*;
 use anchor_spl::token::{Token, TokenAccount};
 
 #[derive(Accounts)]
 pub struct Liquidate<'info> {
-    /// Anyone can liquidate an unhealthy loan; they pay the debt and get the collateral at a bonus.
+    /// Anyone can liquidate a loan that is unhealthy or in default; they pay the debt
+    /// (or what the collateral covers) and get the collateral at a bonus.
     #[account(mut)]
     pub liquidator: Signer<'info>,
 
@@ -59,41 +60,42 @@ pub fn handle_liquidate(ctx: Context<Liquidate>) -> Result<()> {
     let now = Clock::get()?.unix_timestamp;
     ctx.accounts.pool.accrue_now(ctx.accounts.vault.amount)?;
     let a = &ctx.accounts;
+    let cfg = &a.collateral_config;
 
-    // 1. Debt today vs collateral value today
+    // 1. Allowed if the loan is in default (grace period over) or unhealthy at this asset's threshold
     let debt = a.loan.debt(&a.pool).ok_or(PoolError::MathOverflow)?;
-    let decimals = a.collateral_config.decimals;
-    let (price, expo) = collateral_price(&a.price_update, &a.collateral_config, now)?;
-    let value = collateral_value(a.loan.collateral_amount, decimals, price, expo).ok_or(PoolError::MathOverflow)?;
-    require!(is_liquidatable(value, debt), PoolError::NotLiquidatable);
+    let (price, expo) = collateral_price(&a.price_update, cfg, now)?;
+    let value = collateral_value(a.loan.collateral_amount, cfg.decimals, price, expo).ok_or(PoolError::MathOverflow)?;
+    let defaulted = in_default(now, a.loan.due_at);
+    require!(defaulted || is_liquidatable(value, debt, cfg.liq_threshold_bps), PoolError::NotLiquidatable);
 
-    // 2. Who gets how much collateral
-    let (to_liquidator, to_borrower) =
-        liquidation_split(debt, a.loan.collateral_amount, decimals, price, expo).ok_or(PoolError::MathOverflow)?;
+    // 2. Who pays what, who gets what (and any bad debt)
+    let split = liquidation_split(debt, a.loan.collateral_amount, cfg.decimals, price, expo, cfg.liq_bonus_bps)
+        .ok_or(PoolError::MathOverflow)?;
 
-    // 3. Liquidator pays the debt; collateral goes out in two parts
+    // 3. Liquidator pays; collateral goes out in two parts
     let token = a.token_program.key();
-    user_transfer(token, a.liquidator_usdc.to_account_info(), a.vault.to_account_info(), a.liquidator.to_account_info(), debt)?;
+    user_transfer(token, a.liquidator_usdc.to_account_info(), a.vault.to_account_info(), a.liquidator.to_account_info(), split.pay)?;
     pool_transfer(
         token,
         a.collateral_vault.to_account_info(),
         a.liquidator_collateral.to_account_info(),
         a.pool.to_account_info(),
         a.pool.bump,
-        to_liquidator,
+        split.seize,
     )?;
-    if to_borrower > 0 {
+    if split.back > 0 {
         pool_transfer(
             token,
             a.collateral_vault.to_account_info(),
             a.borrower_collateral.to_account_info(),
             a.pool.to_account_info(),
             a.pool.bump,
-            to_borrower,
+            split.back,
         )?;
     }
 
-    // 4. TrustTrail records the liquidation (score penalty + 90-day tier block)
+    // 4. TrustTrail records it: defaulted (3x penalty) or liquidated (2x); both block Silver and Gold for 90 days
     let parties = Parties {
         pool: a.pool.to_account_info(),
         pool_bump: a.pool.bump,
@@ -101,10 +103,17 @@ pub fn handle_liquidate(ctx: Context<Liquidate>) -> Result<()> {
         payer: a.liquidator.to_account_info(),
         system_program: a.system_program.to_account_info(),
     };
-    let interest = debt.saturating_sub(a.loan.principal);
-    a.score.record(parties, a.loan.key(), &a.loan, trusttrail::OUTCOME_LIQUIDATED, interest)?;
+    let (outcome, status) = if defaulted {
+        (trusttrail::OUTCOME_DEFAULTED, LOAN_DEFAULTED)
+    } else {
+        (trusttrail::OUTCOME_LIQUIDATED, LOAN_LIQUIDATED)
+    };
+    let interest = split.pay.saturating_sub(a.loan.principal);
+    a.score.record(parties, a.loan.key(), &a.loan, outcome, interest)?;
 
-    // 5. Books
+    // 5. Books: the whole debt leaves the pool; whatever was not paid is the lenders' loss
     let a = &mut *ctx.accounts;
-    close_loan(&mut a.pool, &mut a.loan, &mut a.borrower_state, debt, LOAN_LIQUIDATED)
+    close_loan(&mut a.pool, &mut a.loan, &mut a.borrower_state, debt, status)?;
+    a.pool.bad_debt = a.pool.bad_debt.checked_add(split.bad_debt).ok_or(PoolError::MathOverflow)?;
+    Ok(())
 }

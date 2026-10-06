@@ -22,6 +22,8 @@ pub struct PoolConfig {
     pub tier_scaled_debt: [u128; TIERS],
     pub tier_spread_bps: [i16; TIERS],
     pub reserve_factor_bps: u16,
+    /// Total debt written off because the collateral could not cover it (lenders took this loss).
+    pub bad_debt: u64,
     pub bump: u8,
     pub vault_bump: u8,
     pub lp_mint_bump: u8,
@@ -100,6 +102,7 @@ mod tests {
             tier_scaled_debt: [0; TIERS],
             tier_spread_bps: [400, 200, 0, -150],
             reserve_factor_bps: 1_000,
+            bad_debt: 0,
             bump: 0,
             vault_bump: 0,
             lp_mint_bump: 0,
@@ -159,6 +162,10 @@ pub struct CollateralConfig {
     /// A price older than this is refused.
     pub max_age_secs: u32,
     pub decimals: u8,
+    /// Liquidatable once the collateral is worth less than this share of the debt (e.g. 11_000 = 110%).
+    pub liq_threshold_bps: u16,
+    /// The liquidator gets collateral worth the debt plus this share (e.g. 500 = 5%).
+    pub liq_bonus_bps: u16,
     pub bump: u8,
 }
 
@@ -178,6 +185,7 @@ pub struct BorrowerState {
 pub const LOAN_OPEN: u8 = 0;
 pub const LOAN_REPAID: u8 = 1;
 pub const LOAN_LIQUIDATED: u8 = 2;
+pub const LOAN_DEFAULTED: u8 = 3;
 
 /// One loan. Its address is also the SAS attestation nonce at repay.
 #[account]

@@ -170,6 +170,14 @@ export type Pool = {
         {
           "name": "maxAgeSecs",
           "type": "u32"
+        },
+        {
+          "name": "liqThresholdBps",
+          "type": "u16"
+        },
+        {
+          "name": "liqBonusBps",
+          "type": "u16"
         }
       ]
     },
@@ -581,7 +589,8 @@ export type Pool = {
         {
           "name": "liquidator",
           "docs": [
-            "Anyone can liquidate an unhealthy loan; they pay the debt and get the collateral at a bonus."
+            "Anyone can liquidate a loan that is unhealthy or in default; they pay the debt",
+            "(or what the collateral covers) and get the collateral at a bonus."
           ],
           "writable": true,
           "signer": true
@@ -1077,7 +1086,12 @@ export type Pool = {
     {
       "code": 6012,
       "name": "notLiquidatable",
-      "msg": "Loan is healthy and cannot be liquidated"
+      "msg": "Loan is healthy and not in default, so it cannot be liquidated"
+    },
+    {
+      "code": 6013,
+      "name": "invalidRiskParams",
+      "msg": "Liquidation threshold and bonus do not fit together"
     }
   ],
   "types": [
@@ -1166,6 +1180,20 @@ export type Pool = {
           {
             "name": "decimals",
             "type": "u8"
+          },
+          {
+            "name": "liqThresholdBps",
+            "docs": [
+              "Liquidatable once the collateral is worth less than this share of the debt (e.g. 11_000 = 110%)."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "liqBonusBps",
+            "docs": [
+              "The liquidator gets collateral worth the debt plus this share (e.g. 500 = 5%)."
+            ],
+            "type": "u16"
           },
           {
             "name": "bump",
@@ -1321,6 +1349,13 @@ export type Pool = {
           {
             "name": "reserveFactorBps",
             "type": "u16"
+          },
+          {
+            "name": "badDebt",
+            "docs": [
+              "Total debt written off because the collateral could not cover it (lenders took this loss)."
+            ],
+            "type": "u64"
           },
           {
             "name": "bump",

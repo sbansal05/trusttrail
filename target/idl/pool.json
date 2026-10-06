@@ -164,6 +164,14 @@
         {
           "name": "max_age_secs",
           "type": "u32"
+        },
+        {
+          "name": "liq_threshold_bps",
+          "type": "u16"
+        },
+        {
+          "name": "liq_bonus_bps",
+          "type": "u16"
         }
       ]
     },
@@ -575,7 +583,8 @@
         {
           "name": "liquidator",
           "docs": [
-            "Anyone can liquidate an unhealthy loan; they pay the debt and get the collateral at a bonus."
+            "Anyone can liquidate a loan that is unhealthy or in default; they pay the debt",
+            "(or what the collateral covers) and get the collateral at a bonus."
           ],
           "writable": true,
           "signer": true
@@ -1071,7 +1080,12 @@
     {
       "code": 6012,
       "name": "NotLiquidatable",
-      "msg": "Loan is healthy and cannot be liquidated"
+      "msg": "Loan is healthy and not in default, so it cannot be liquidated"
+    },
+    {
+      "code": 6013,
+      "name": "InvalidRiskParams",
+      "msg": "Liquidation threshold and bonus do not fit together"
     }
   ],
   "types": [
@@ -1160,6 +1174,20 @@
           {
             "name": "decimals",
             "type": "u8"
+          },
+          {
+            "name": "liq_threshold_bps",
+            "docs": [
+              "Liquidatable once the collateral is worth less than this share of the debt (e.g. 11_000 = 110%)."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "liq_bonus_bps",
+            "docs": [
+              "The liquidator gets collateral worth the debt plus this share (e.g. 500 = 5%)."
+            ],
+            "type": "u16"
           },
           {
             "name": "bump",
@@ -1315,6 +1343,13 @@
           {
             "name": "reserve_factor_bps",
             "type": "u16"
+          },
+          {
+            "name": "bad_debt",
+            "docs": [
+              "Total debt written off because the collateral could not cover it (lenders took this loss)."
+            ],
+            "type": "u64"
           },
           {
             "name": "bump",
