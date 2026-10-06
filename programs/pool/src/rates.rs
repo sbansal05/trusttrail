@@ -5,11 +5,12 @@ pub const YEAR_SECS: u64 = 365 * 86_400;
 /// Fixed-point 1.0 for borrow indices (18 decimals).
 pub const WAD: u128 = 1_000_000_000_000_000_000;
 
-/// Base APR curve: 2% at 0% utilization, 8% at the 80% kink, 50% at 100%.
+//// Base APR curve, calibrated on Kamino's Main Market USDC reserve (6 Oct 2026: 0% → 0%, 95% → 5.51%,
+/// 100% → 36.34%), rounded, with a 2% floor: 2% at 0% utilization, 5.5% at the 95% kink, 36% at 100%.
 pub const BASE_RATE_BPS: u64 = 200;
-pub const KINK_RATE_BPS: u64 = 800;
-pub const MAX_RATE_BPS: u64 = 5_000;
-pub const KINK_UTIL_BPS: u64 = 8_000;
+pub const KINK_RATE_BPS: u64 = 550;
+pub const MAX_RATE_BPS: u64 = 3_600;
+pub const KINK_UTIL_BPS: u64 = 9_500;
 
 /// Utilization in bps: borrowed ÷ (borrowed + idle). An empty pool is 0%.
 pub fn utilization_bps(borrowed: u64, idle: u64) -> u64 {
@@ -58,12 +59,12 @@ mod tests {
 
     #[test]
     fn base_rate_curve() {
-        assert_eq!(base_rate_bps(0), 200);
-        assert_eq!(base_rate_bps(4_000), 500);
-        assert_eq!(base_rate_bps(8_000), 800);
-        assert_eq!(base_rate_bps(9_000), 2_900);
-        assert_eq!(base_rate_bps(10_000), 5_000);
-        assert_eq!(base_rate_bps(12_000), 5_000);
+        assert_eq!(base_rate_bps(0), 200);          // 2% floor
+        assert_eq!(base_rate_bps(5_000), 384);      // 2% + 50/95 of 3.5%
+        assert_eq!(base_rate_bps(9_500), 550);      // kink: 5.5%, like Kamino at 95%
+        assert_eq!(base_rate_bps(9_750), 2_075);    // half way up the steep part
+        assert_eq!(base_rate_bps(10_000), 3_600);   // 36% when the pool is empty
+        assert_eq!(base_rate_bps(12_000), 3_600);
     }
 
     #[test]

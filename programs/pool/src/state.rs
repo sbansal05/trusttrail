@@ -119,15 +119,16 @@ mod tests {
 
     #[test]
     fn silver_loan_at_kink_for_a_year() {
-        // 800 borrowed by a Silver wallet, 200 idle → 80% utilization → 8% base, Silver +0
+        // 950 borrowed by a Silver wallet, 50 idle → 95% utilization → 5.5% base, Silver +0
         let mut p = pool();
-        p.tier_scaled_debt[2] = 800 * U as u128;
-        p.total_borrowed = 800 * U;
-        p.accrue(YEAR_SECS as i64, 200 * U).unwrap();
-        assert_eq!(p.total_borrowed, 864 * U);                     // +8%
-        assert_eq!(p.protocol_fees, 6_400_000);                     // 10% of 64 USDC
-        assert_eq!(p.total_assets(200 * U), Some(1_057_600_000));   // lenders: 200 + 864 − 6.4
+        p.tier_scaled_debt[2] = 950 * U as u128;
+        p.total_borrowed = 950 * U;
+        p.accrue(YEAR_SECS as i64, 50 * U).unwrap();
+        assert_eq!(p.total_borrowed, 1_002_250_000);                // +5.5%
+        assert_eq!(p.protocol_fees, 5_225_000);                     // 10% of 52.25 USDC
+        assert_eq!(p.total_assets(50 * U), Some(1_047_025_000));    // lenders: 50 + 1,002.25 − 5.225
     }
+
     #[test]
     fn remove_debt_clears_the_tier() {
         let mut p = pool();
@@ -142,9 +143,9 @@ mod tests {
     #[test]
     fn tiers_pay_different_rates() {
         let mut busy = pool();
-        busy.total_borrowed = 800 * U;
-        assert_eq!(busy.tier_rates_bps(200 * U), [1_200, 1_000, 800, 650]);
-        assert_eq!(pool().tier_rates_bps(100 * U), [600, 400, 200, 50]);
+        busy.total_borrowed = 950 * U;
+        assert_eq!(busy.tier_rates_bps(50 * U), [950, 750, 550, 400]);   // at the kink: Gold 4%
+        assert_eq!(pool().tier_rates_bps(100 * U), [600, 400, 200, 50]); // empty pool: 2% floor
     }
 }
 
