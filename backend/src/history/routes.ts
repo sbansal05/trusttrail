@@ -10,7 +10,7 @@ import { importHistory } from "./store";
 import { verifyImportRequest } from "./auth";
 import { ImportError, prepareImport, submitImport, type ImportDeps } from "./importService";
 
-function isWallet(s: unknown): s is string {
+export function isWallet(s: unknown): s is string {
     if (typeof s !== "string") return false;
     try {
         new PublicKey(s);

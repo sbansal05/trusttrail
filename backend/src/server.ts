@@ -10,8 +10,9 @@ import { createPool } from "./history/db";
 import { migrate } from "./history/store";
 import { importHistoryRouter, importRouter } from "./history/routes";
 import { liveSources } from "./history/prices";
-import { walletHistory } from "./history/adapters";
+import { ADAPTERS, walletHistory } from "./history/adapters";
 import { buildLoans } from "./history/buildLoans";
+import { scoreRouter } from "./score/routes";
 
 function required(name: string): string {
     const v = process.env[name];
@@ -37,8 +38,10 @@ app.use(
         writer,
         prices: liveSources(),
         history: async (wallet) => buildLoans(await walletHistory(wallet)),
+        checkedProtocols: ADAPTERS.map((a) => a.protocol),
     }),
 );
+app.use(scoreRouter({ pool, connection }));
 
 const port = Number(process.env.PORT || 3000);
 migrate(pool)

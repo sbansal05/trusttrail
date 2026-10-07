@@ -1,3 +1,9 @@
+//! The import flow.
+//! prepare: check the cooldown, build the priced history and the plan, save it as pending,
+//!          and return the import transaction signed by the backend writer key.
+//! submit:  the wallet sends back the same transaction with its own signature; the backend checks that
+//!          nothing was changed, sends it, waits for confirmation and marks the import confirmed.
+
 import type { Connection, Keypair } from "@solana/web3.js";
 import { PublicKey, Transaction } from "@solana/web3.js";
 import type { Pool } from "pg";
@@ -19,6 +25,7 @@ export type ImportDeps = {
     writer: Keypair;
     prices: PriceSources;
     history: (wallet: string) => Promise<Loan[]>;
+    checkedProtocols: string[]; // the protocols `history` scans, saved with each import for its coverage
 };
 
 /** An error with the HTTP status the route should answer with. */
@@ -36,7 +43,7 @@ export type PreparedImport = {
     newLoans: number;
     pricedLoans: number;
     unpricedLoans: number;
-    sameTransactionLoans: number;
+    sameTransactionLoans: number; // repaid in the transaction that opened them: skipped, not public
     createsAccount: boolean;
 };
 
@@ -59,7 +66,7 @@ export async function prepareImport(deps: ImportDeps, walletAddress: string): Pr
     const importId = await savePending(deps.pool, walletAddress, plan, {
         message: tx.serializeMessage().toString("base64"),
         lastValidBlockHeight,
-    });
+    }, deps.checkedProtocols);
 
     return {
         importId,

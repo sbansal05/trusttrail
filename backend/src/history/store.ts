@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS imports (
 );
 ALTER TABLE imports ADD COLUMN IF NOT EXISTS tx_message TEXT;
 ALTER TABLE imports ADD COLUMN IF NOT EXISTS last_valid_height BIGINT;
+ALTER TABLE imports ADD COLUMN IF NOT EXISTS checked_protocols TEXT;
 CREATE INDEX IF NOT EXISTS imports_wallet_idx ON imports (wallet, id);
 
 CREATE TABLE IF NOT EXISTS import_loans (
@@ -97,18 +98,23 @@ function loanValues(importId: string, l: Loan, p: PricedLoan | null): unknown[] 
     ];
 }
 
-export type PendingTx = { message: string; lastValidBlockHeight: number };
-
-
-export async function savePending(pool: Pool, wallet: string, plan: ImportPlan, tx: PendingTx): Promise<string> {
+/**
+ * Saves a planned import as pending and returns its id. Older pending imports of the same wallet are deleted,
+ * since their transactions have expired or been replaced.
+ */
+export async function savePending(
+    pool: Pool, wallet: string, plan: ImportPlan, tx: PendingTx, checkedProtocols: string[],
+): Promise<string> {
     return inTransaction(pool, async (c) => {
         await c.query(`DELETE FROM imports WHERE wallet = $1 AND status = 'pending'`, [wallet]);
         const { rows } = await c.query(
             `INSERT INTO imports (wallet, status, score, meaningful_on_time, meaningful_weight_bps,
-                                  previous_import_date, computed_at, new_loans, tx_message, last_valid_height)
-             VALUES ($1, 'pending', $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+                                  previous_import_date, computed_at, new_loans, tx_message, last_valid_height,
+                                  checked_protocols)
+             VALUES ($1, 'pending', $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
             [wallet, Number(plan.score), plan.meaningfulOnTime, plan.meaningfulWeightBps.toString(),
-             plan.previousImportDate, plan.computedAt, plan.newLoans, tx.message, tx.lastValidBlockHeight],
+             plan.previousImportDate, plan.computedAt, plan.newLoans, tx.message, tx.lastValidBlockHeight,
+             checkedProtocols.join(",")],
         );
         const id = String(rows[0].id);
         for (const p of plan.priced) await c.query(INSERT_LOAN, loanValues(id, p, p));
@@ -116,6 +122,9 @@ export async function savePending(pool: Pool, wallet: string, plan: ImportPlan, 
         return id;
     });
 }
+
+/** The transaction the wallet must sign unchanged: its base64 message and the last block height it is valid for. */
+export type PendingTx = { message: string; lastValidBlockHeight: number };
 
 /** The transaction of a pending import, or null if there is no such pending import. */
 export async function pendingTx(pool: Pool, importId: string): Promise<PendingTx | null> {
@@ -137,6 +146,7 @@ export async function confirmImport(pool: Pool, importId: string, txSignature: s
     return rowCount === 1;
 }
 
+// ---------- Public view ----------
 
 export type PublicLoan = {
     protocol: string;
@@ -169,8 +179,16 @@ export type PublicImport = {
     previousImportDate: number;
     computedAt: number;
     newLoans: number;
+    checkedProtocols: string[];
     loans: PublicLoan[];
 };
+
+/** Imports saved before the checked list was stored were made by the Kamino-only scanner. */
+export const LEGACY_CHECKED_PROTOCOLS = ["kamino"];
+
+function checkedOf(v: string | null): string[] {
+    return v === null ? LEGACY_CHECKED_PROTOCOLS : v.split(",").filter((p) => p !== "");
+}
 
 const num = (v: string | number | null) => (v === null ? null : Number(v));
 const str = (v: string | number | null) => (v === null ? null : String(v));
@@ -221,6 +239,7 @@ export async function importHistory(pool: Pool, wallet: string, latestOnly: bool
             previousImportDate: Number(r.previous_import_date),
             computedAt: Number(r.computed_at),
             newLoans: Number(r.new_loans),
+            checkedProtocols: checkedOf(r.checked_protocols),
             loans: loans.rows.map(toPublicLoan),
         });
     }

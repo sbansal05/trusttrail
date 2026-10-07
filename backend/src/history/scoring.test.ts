@@ -1,7 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { principalWeightBps, durationBps, loanContributionBps, decayBps, nativeComponent, USDC, importSummary, meaningfulLoan } from "./scoring";
-import type { Loan } from "./types";
+import {
+    principalWeightBps, durationBps, loanContributionBps, decayBps, nativeComponent, blend, computeTier, USDC,
+    TIER_UNPROVEN, TIER_BRONZE, TIER_SILVER, TIER_GOLD,
+} from "./scoring";
 
 const H = 3_600, T0 = 1_800_000_000, D90 = 90 * 86_400;
 const usd = (d: number) => BigInt(d) * USDC;
@@ -52,6 +54,9 @@ test("native component (same as Rust b_native_component)", () => {
     assert.equal(nativeComponent(20n * loan, decayBps(2n * loan, T0, T0 + D90)), 875n);
     assert.equal(nativeComponent(1n * loan, 3n * loan), 0n);
 });
+import { importSummary, meaningfulLoan } from "./scoring";
+import type { Loan } from "./types";
+
 const DAY = 86_400;
 const histLoan = (principal: bigint, openedAt: number, days: number, outcome: 0 | 2): Loan => ({
     protocol: "kamino", wallet: "w", position: "p", mint: "m", decimals: 6, principal,
@@ -83,4 +88,34 @@ test("importSummary: a liquidation subtracts, and fades with time", () => {
     assert.equal(fresh.score, 0n);       // 2.0 − 2.0
     assert.equal(later.score, 187n);     // penalty quartered after 180 days: 2.0 − 0.5 = 1.5
     assert.equal(fresh.meaningfulOnTime, 4);
+});
+
+test("blend (same as Rust c_blend)", () => {
+    const loan = 10_000n;
+    assert.equal(blend(0n, 600n, 0n), 600n);
+    assert.equal(blend(1000n, 600n, 4n * loan), 800n);
+    assert.equal(blend(1000n, 600n, 8n * loan), 1000n);
+    assert.equal(blend(1000n, 600n, 50n * loan), 1000n);
+    assert.equal(blend(0n, 900n, 8n * loan), 0n);
+    assert.equal(blend(0n, 800n, 1n * loan), 700n);
+    assert.equal(blend(0n, 0n, 0n), 0n);
+    assert.equal(blend(1000n, 1000n, 2n ** 64n - 1n), 1000n);
+});
+
+test("tiers (same as Rust d_tiers)", () => {
+    const now = T0;
+    const w = (d: number) => principalWeightBps(usd(d));
+    assert.equal(computeTier(0n, 0, 0n, 0, now), TIER_UNPROVEN);
+    assert.equal(computeTier(400n, 10, 100_000n, 0, now), TIER_BRONZE);
+    assert.equal(computeTier(600n, 2, 50_000n, 0, now), TIER_BRONZE);
+    assert.equal(computeTier(600n, 3, 29_999n, 0, now), TIER_BRONZE);
+    assert.equal(computeTier(600n, 3, 30_000n, 0, now), TIER_SILVER);
+    assert.equal(computeTier(600n, 3, 3n * w(101), 0, now), TIER_BRONZE);
+    assert.equal(computeTier(600n, 6, 6n * w(300), 0, now), TIER_SILVER);
+    assert.equal(computeTier(600n, 3, 3n * w(740), 0, now), TIER_SILVER);
+    assert.equal(computeTier(800n, 8, 79_999n, 0, now), TIER_SILVER);
+    assert.equal(computeTier(800n, 8, 80_000n, 0, now), TIER_GOLD);
+    assert.equal(computeTier(800n, 5, 200_000n, 0, now), TIER_SILVER);
+    assert.equal(computeTier(900n, 20, 200_000n, now - 10 * 86_400, now), TIER_BRONZE);
+    assert.equal(computeTier(900n, 20, 200_000n, now - D90, now), TIER_GOLD);
 });

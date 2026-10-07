@@ -1,5 +1,4 @@
 import type { Loan } from "./types";
-
 export const BPS = 10_000n;
 export const USDC = 1_000_000n;
 export const MIN_PRINCIPAL = 100n * USDC;
@@ -84,7 +83,6 @@ export function nativeComponent(sPlus: bigint, sMinusNow: bigint): bigint {
     const net = good > sMinusNow ? good - sMinusNow : 0n;
     return (net * SCORE_MAX) / FULL_WEIGHT_BPS;
 }
-
 /** Repaid in full (on time or late), at least $100, open at least 24 h. Same as Rust `meaningful_loan`. */
 export function meaningfulLoan(principal: bigint, openedAt: number, closedAt: number, outcome: number): boolean {
     const repaidInFull = outcome === 0 || outcome === 1;
@@ -113,4 +111,47 @@ export function importSummary(loans: Loan[], now: number): ImportSummary {
         }
     }
     return { score: nativeComponent(sPlus, sMinus), meaningfulOnTime, meaningfulWeightBps };
+}
+
+// ---------- Final score and tier (same as Rust blend / compute_tier) ----------
+
+export const TIER_UNPROVEN = 0, TIER_BRONZE = 1, TIER_SILVER = 2, TIER_GOLD = 3;
+export const TIER_NAMES = ["unproven", "bronze", "silver", "gold"] as const;
+export const LIQUIDATION_COOLDOWN_SECS = 90 * 86_400;
+
+/** Gates of each tier above Bronze; every one must pass. Bronze only needs a score above 0. */
+export const TIER_GATES = {
+    [TIER_SILVER]: { minScore: 500, minOnTime: 3, minWeightBps: 30_000n },
+    [TIER_GOLD]: { minScore: 750, minOnTime: 8, minWeightBps: 80_000n },
+} as const;
+
+/** Share of the native part in bps: α = min(1, exposure ÷ 8.0). */
+export function nativeShareBps(exposureBps: bigint): bigint {
+    const e = exposureBps < FULL_WEIGHT_BPS ? exposureBps : FULL_WEIGHT_BPS;
+    return (e * BPS) / FULL_WEIGHT_BPS;
+}
+
+/** Final score: α · native + (1 − α) · imported. */
+export function blend(native: bigint, imported: bigint, exposureBps: bigint): bigint {
+    const alpha = nativeShareBps(exposureBps);
+    return (native * alpha + imported * (BPS - alpha)) / BPS;
+}
+
+/** True if no liquidation or default happened in the last 90 days (0 = never). */
+export function liquidationClean(lastLiquidationAt: number, now: number): boolean {
+    return lastLiquidationAt === 0 || now - lastLiquidationAt >= LIQUIDATION_COOLDOWN_SECS;
+}
+
+export function computeTier(
+    score: bigint, meaningfulOnTime: number, meaningfulWeightBps: bigint, lastLiquidationAt: number, now: number,
+): number {
+    if (score === 0n) return TIER_UNPROVEN;
+    const clean = liquidationClean(lastLiquidationAt, now);
+    for (const tier of [TIER_GOLD, TIER_SILVER] as const) {
+        const g = TIER_GATES[tier];
+        if (clean && score >= BigInt(g.minScore) && meaningfulOnTime >= g.minOnTime && meaningfulWeightBps >= g.minWeightBps) {
+            return tier;
+        }
+    }
+    return TIER_BRONZE;
 }

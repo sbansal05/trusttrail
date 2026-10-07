@@ -54,7 +54,8 @@ function clockData(now: number): Buffer {
 }
 
 /** A fake chain + an in-memory database. `importDate` null = the wallet has no reputation account yet. */
-async function setup(importDate: number | null, opts: { failOnChain?: boolean; history?: Loan[] } = {}) {    const { Pool } = newDb().adapters.createPg();
+async function setup(importDate: number | null, opts: { failOnChain?: boolean; history?: Loan[] } = {}) {
+    const { Pool } = newDb().adapters.createPg();
     const pool = new Pool() as Pool;
     await migrate(pool);
     const sent: Buffer[] = [];
@@ -74,6 +75,7 @@ async function setup(importDate: number | null, opts: { failOnChain?: boolean; h
     const deps: ImportDeps = {
         pool, connection, writer, prices,
         history: async () => { historyCalls++; return opts.history ?? HISTORY; },
+        checkedProtocols: ["kamino", "marginfi", "save"],
     };
     return { deps, pool, sent, historyCalls: () => historyCalls };
 }
