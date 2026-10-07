@@ -18,6 +18,10 @@ export type CreditEvent = {
     timestamp: number; //seconds
 
     signature: string;   // tx signature
+
+    // For a repay-everything (amount = REPAY_ALL): the amount that actually moved, when the transaction shows it.
+    // Less than what was borrowed means part of the debt was cleared by a liquidation.
+    paid?: bigint;
     
     dueAt: number;
 };
@@ -40,7 +44,7 @@ export type Loan = {
     //0 = no due date
     //outcome for kamino: 0 | 2
     outcome: 0 | 1 | 2 | 3;
-    
+
     // When the debt reached its peak (the loan is priced at this moment).
     peakAt: number;
     // Proof for anyone checking the import: first borrow, the borrow that set the peak,

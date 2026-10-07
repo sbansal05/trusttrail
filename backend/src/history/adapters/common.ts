@@ -71,6 +71,17 @@ export function mintDecimals(tx: Tx, mint: string): number {
     return hit ? hit.uiTokenAmount.decimals : 6;
 }
 
+/** How much a token account's raw balance changed in the transaction (post − pre); null if not listed. */
+export function tokenBalanceChange(tx: Tx, tokenAccount: string): bigint | null {
+    const meta = (tx as any).meta;
+    const keys = accountKeys(tx);
+    const find = (list: any[] | undefined) => (list ?? []).find((b: any) => keys[b.accountIndex] === tokenAccount);
+    const pre = find(meta?.preTokenBalances), post = find(meta?.postTokenBalances);
+    if (!pre && !post) return null;
+    const raw = (b: any) => (b ? BigInt(b.uiTokenAmount.amount) : 0n);
+    return raw(post) - raw(pre);
+}
+
 export const succeeded = (tx: Tx) => (tx as any).meta?.err == null;
 export const signatureOf = (tx: Tx): string => (tx.transaction as any).signatures[0];
 export const timeOf = (tx: Tx): number => tx.blockTime ?? 0;

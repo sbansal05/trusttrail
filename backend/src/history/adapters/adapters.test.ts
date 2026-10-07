@@ -7,7 +7,11 @@ import { kamino } from "./kamino";
 import { marginfi, MARGINFI_PROGRAM_ID } from "./marginfi";
 import { save, SAVE_PROGRAM_ID } from "./save";
 import { KAMINO_PROGRAM_ID } from "../../getObligations";
-import { buildLoans } from "../buildLoans";
+import { buildLoans, repayOutcome, liquidationOutcome } from "../buildLoans";
+import { jupiterLend, JUPITER_VAULTS_PROGRAM_ID, MIN_I128, readI128 } from "./jupiterLend";
+import { jupiterStateEvents, parsePositionIds, STATE_SIGNATURE_PREFIX, type PositionState } from "./jupiterState";
+import { loopscale, LOOPSCALE_PROGRAM_ID } from "./loopscale";
+import { durationSecs, termStarts, withLoopscaleDueDates } from "./loopscaleTerms";
 
 const USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 const WALLET = "Wa11et1111111111111111111111111111111111111";
@@ -20,7 +24,7 @@ type RawIx = { program: string; accounts: string[]; data: Buffer };
 function fakeTx(o: {
     top: RawIx[];
     inner?: { index: number; ixs: RawIx[] }[];
-    tokens?: { account: string; mint: string; decimals: number }[];
+    tokens?: { account: string; mint: string; decimals: number; pre?: string; post?: string }[];
     time?: number;
     sig?: string;
     err?: unknown;
@@ -30,10 +34,13 @@ function fakeTx(o: {
     const enc = (ix: RawIx) => ({ programIdIndex: idx(ix.program), accounts: ix.accounts.map(idx), data: bs58.encode(ix.data) });
     const top = o.top.map(enc);
     const inner = (o.inner ?? []).map((g) => ({ index: g.index, instructions: g.ixs.map(enc) }));
-    const balances = (o.tokens ?? []).map((t) => ({ accountIndex: idx(t.account), mint: t.mint, uiTokenAmount: { decimals: t.decimals } }));
+    const balance = (t: NonNullable<typeof o.tokens>[number], amount: string) =>
+        ({ accountIndex: idx(t.account), mint: t.mint, uiTokenAmount: { decimals: t.decimals, amount } });
+    const preBalances = (o.tokens ?? []).map((t) => balance(t, t.pre ?? "0"));
+    const postBalances = (o.tokens ?? []).map((t) => balance(t, t.post ?? t.pre ?? "0"));
     return {
         blockTime: o.time ?? T0,
-        meta: { err: o.err ?? null, innerInstructions: inner, preTokenBalances: balances, postTokenBalances: balances, loadedAddresses: { writable: [], readonly: [] } },
+        meta: { err: o.err ?? null, innerInstructions: inner, preTokenBalances: preBalances, postTokenBalances: postBalances, loadedAddresses: { writable: [], readonly: [] } },
         transaction: { signatures: [o.sig ?? "sig"], message: { accountKeys: keys, instructions: top } },
     } as unknown as Tx;
 }
@@ -220,4 +227,177 @@ test("Save: borrow and repay through temporary accounts take the mint from the r
 test("an event is skipped only when neither the user's account nor the vault is listed", () => {
     assert.equal(marginfi.events(WALLET, fakeTx({ top: [mfiBorrow("ACC", "TEMP", 1n)] })).length, 0);
     assert.equal(save.events(WALLET, fakeTx({ top: [saveIx(10, 9, { 1: "TEMP", 4: "OBL" }, 1n)] })).length, 0);
+});
+
+// ---------- Jupiter Lend ----------
+
+const i128 = (n: bigint) => { const b = Buffer.alloc(16); const u = BigInt.asUintN(128, n); b.writeBigUInt64LE(u & (2n ** 64n - 1n)); b.writeBigUInt64LE(u >> 64n, 8); return b; };
+/** operate(new_col, new_debt, transfer_type None, remaining_accounts_indices empty) */
+const jupOperate = (signer: string, position: string, newCol: bigint, newDebt: bigint): RawIx => {
+    const a = acc(36, "jup");
+    a[0] = signer; a[9] = "USDCMINT"; a[11] = position; a[25] = "JUPVAULT";
+    return { program: JUPITER_VAULTS_PROGRAM_ID, accounts: a, data: Buffer.concat([disc("operate"), i128(newCol), i128(newDebt), Buffer.from([0]), Buffer.alloc(4)]) };
+};
+
+test("Jupiter Lend: i128 amounts read back, negative and i128::MIN included", () => {
+    assert.equal(readI128(i128(-5n), 0), -5n);
+    assert.equal(readI128(i128(MIN_I128), 0), MIN_I128);
+    assert.equal(readI128(i128(2n ** 100n), 0), 2n ** 100n);
+});
+
+test("Jupiter Lend: borrow, a set repay, and collateral-only operates", () => {
+    const b = jupiterLend.events(WALLET, fakeTx({ top: [jupOperate(WALLET, "POS", 5_000_000_000n, 1_000_000_000n)] }));
+    const r = jupiterLend.events(WALLET, fakeTx({ top: [jupOperate(WALLET, "POS", 0n, -400_000_000n)] }));
+    const c = jupiterLend.events(WALLET, fakeTx({ top: [jupOperate(WALLET, "POS", 7n, 0n)] }));
+    assert.deepEqual(b.map((e) => [e.kind, e.position, e.mint, e.amount]), [["borrow", "POS", "USDCMINT", 1_000_000_000n]]);
+    assert.deepEqual(r.map((e) => [e.kind, e.amount]), [["repay", 400_000_000n]]);
+    assert.equal(c.length, 0);
+});
+
+test("Jupiter Lend: repay-everything records what actually reached the vault; others' operates are ignored", () => {
+    const tokens = [{ account: "JUPVAULT", mint: USDC, decimals: 6, pre: "9000000000", post: "9600000000" }];
+    const [e] = jupiterLend.events(WALLET, fakeTx({ top: [jupOperate(WALLET, "POS", 0n, MIN_I128)], tokens }));
+    assert.deepEqual([e.kind, e.amount, e.paid], ["repay", REPAY_ALL, 600_000_000n]);
+    assert.equal(jupiterLend.events(WALLET, fakeTx({ top: [jupOperate("SOMEONEELSE", "POS", 0n, 5n)] })).length, 0);
+});
+
+test("Jupiter Lend: a repay-everything short of what was borrowed is a liquidation; with interest it is on time", () => {
+    const borrow = fakeTx({ top: [jupOperate(WALLET, "POS", 1n, 1_000_000_000n)], time: T0, sig: "b" });
+    const closeWith = (paid: string) => fakeTx({
+        top: [jupOperate(WALLET, "POS", 0n, MIN_I128)], time: T0 + 10 * 86_400, sig: "r",
+        tokens: [{ account: "JUPVAULT", mint: USDC, decimals: 6, pre: "0", post: paid }],
+    });
+    const events = (paid: string) => [...jupiterLend.events(WALLET, borrow), ...jupiterLend.events(WALLET, closeWith(paid))];
+    assert.deepEqual(buildLoans(events("600000000")).map((l) => l.outcome), [2]);
+    assert.deepEqual(buildLoans(events("1004000000")).map((l) => l.outcome), [0]);
+});
+
+test("Jupiter Lend state: a liquidated or debt-free open position becomes a liquidation at the last touch", async () => {
+    const borrowA = jupiterLend.events(WALLET, fakeTx({ top: [jupOperate(WALLET, "POSA", 1n, 500_000_000n)], time: T0, sig: "a" }));
+    const borrowB = jupiterLend.events(WALLET, fakeTx({ top: [jupOperate(WALLET, "POSB", 1n, 500_000_000n)], time: T0 + 5, sig: "b" }));
+    const borrowC = jupiterLend.events(WALLET, fakeTx({ top: [jupOperate(WALLET, "POSC", 1n, 500_000_000n)], time: T0 + 9, sig: "c" }));
+    const states: Record<string, PositionState | null> = {
+        POSA: { liquidated: true, debtRaw: 0n },    // liquidated, never touched again
+        POSB: { liquidated: false, debtRaw: 0n },   // debt gone without a repay we saw
+        POSC: { liquidated: false, debtRaw: 1n },   // still open
+    };
+    const events = [...borrowA, ...borrowB, ...borrowC];
+    const extra = await jupiterStateEvents(events, async (p) => states[p] ?? null);
+    assert.deepEqual(extra.map((e) => [e.position, e.kind, e.timestamp, e.signature]), [
+        ["POSA", "liquidation", T0, `${STATE_SIGNATURE_PREFIX}POSA`],
+        ["POSB", "liquidation", T0 + 5, `${STATE_SIGNATURE_PREFIX}POSB`],
+    ]);
+    const loans = buildLoans([...events, ...extra]);
+    assert.deepEqual(loans.map((l) => [l.position, l.outcome, l.closedAt]), [["POSA", 2, T0], ["POSB", 2, T0 + 5]]);
+});
+
+test("Jupiter Lend position account: vault id and NFT id", () => {
+    const d = Buffer.alloc(80);
+    d.writeUInt16LE(7, 8); d.writeUInt32LE(4242, 10);
+    assert.deepEqual(parsePositionIds(d), { vaultId: 7, positionId: 4242 });
+});
+
+// ---------- Loopscale ----------
+
+/** borrow_principal / repay_principal / liquidate_ledger: borrower is account 2, the loan account 3. */
+const lsIx = (name: string, borrower: string, mintAt: number, args: Buffer): RawIx => {
+    const a = acc(17, "ls");
+    a[2] = borrower; a[3] = "LOAN"; a[mintAt] = "PRINCIPALMINT";
+    return { program: LOOPSCALE_PROGRAM_ID, accounts: a, data: Buffer.concat([disc(name), args]) };
+};
+
+test("Loopscale: borrow, repay, repay_all and liquidation of the wallet's own loan", () => {
+    const one = (ix: RawIx) => loopscale.events(WALLET, fakeTx({ top: [ix] }));
+    const borrow = one(lsIx("borrow_principal", WALLET, 6, Buffer.concat([u64(250_000_000n), Buffer.alloc(8)])));
+    const repay = one(lsIx("repay_principal", WALLET, 6, Buffer.concat([u64(100n), Buffer.from([0, 0])])));
+    const repayAll = one(lsIx("repay_principal", WALLET, 6, Buffer.concat([u64(0n), Buffer.from([0, 1])])));
+    const liq = one(lsIx("liquidate_ledger", WALLET, 8, Buffer.from([0, 0, 0, 0, 0, 0])));
+    assert.deepEqual([...borrow, ...repay, ...repayAll, ...liq].map((e) => [e.kind, e.position, e.mint, e.amount]), [
+        ["borrow", "LOAN", "PRINCIPALMINT", 250_000_000n],
+        ["repay", "LOAN", "PRINCIPALMINT", 100n],
+        ["repay", "LOAN", "PRINCIPALMINT", REPAY_ALL],
+        ["liquidation", "LOAN", "PRINCIPALMINT", 0n],
+    ]);
+});
+
+test("Loopscale: a liquidation of someone else's loan in the wallet's history is ignored", () => {
+    const ix = lsIx("liquidate_ledger", "OTHERBORROWER", 8, Buffer.from([0, 0, 0, 0, 0, 0]));
+    assert.equal(loopscale.events(WALLET, fakeTx({ top: [ix] })).length, 0);
+});
+
+test("due dates: on time, late within the 2-day Loopscale grace, defaulted after; others have no grace", () => {
+    const due = T0 + 30 * 86_400, day = 86_400;
+    assert.deepEqual(
+        [due, due + day, due + 2 * day + 1].map((t) => repayOutcome("loopscale", due, t)),
+        [0, 1, 3],
+    );
+    assert.deepEqual([liquidationOutcome("loopscale", due, due + day), liquidationOutcome("loopscale", due, due + 3 * day)], [2, 3]);
+    assert.deepEqual([repayOutcome("kamino", due, due + 10 * day), liquidationOutcome("kamino", 0, due)], [1, 2]);
+});
+
+// ---------- Loopscale terms and rollovers ----------
+
+const DAY = 86_400;
+/** borrow_principal(amount, asset_index_guidance bytes, duration u8, expected values, skip_sol_unwrap) */
+const lsBorrow = (amount: bigint, durationIndex: number, guidance = Buffer.from([1, 2, 3])) =>
+    lsIx("borrow_principal", WALLET, 6, Buffer.concat([u64(amount), u32(guidance.length), guidance, Buffer.from([durationIndex]), Buffer.alloc(8 + 20 + 1)]));
+/** refinance_ledger(ledger_index, duration_index, guidance): loan is account 2, principal mint account 9 */
+const lsRefinance = (durationIndex: number): RawIx => {
+    const a = acc(17, "rf");
+    a[2] = "LOAN"; a[9] = "PRINCIPALMINT";
+    return { program: LOOPSCALE_PROGRAM_ID, accounts: a, data: Buffer.concat([disc("refinance_ledger"), Buffer.from([0, durationIndex]), u32(0)]) };
+};
+function u32(n: number) { const b = Buffer.alloc(4); b.writeUInt32LE(n); return b; }
+const lsRepayAll = () => lsIx("repay_principal", WALLET, 6, Buffer.concat([u64(0n), Buffer.from([0, 1])]));
+
+test("Loopscale terms: the duration index is read after the guidance bytes; refinances restart the term", () => {
+    const txs = [
+        fakeTx({ top: [lsBorrow(5n, 2, Buffer.alloc(7))], time: T0, sig: "b" }),
+        fakeTx({ top: [lsRefinance(1)], time: T0 + 3600, sig: "r" }),
+        fakeTx({ top: [lsIx("borrow_principal", "SOMEONEELSE", 6, Buffer.concat([u64(5n), u32(0), Buffer.from([0])]))], time: T0, sig: "x" }),
+    ];
+    assert.deepEqual(termStarts(WALLET, txs as any).map((s) => [s.loan, s.mint, s.at, s.index]), [
+        ["LOAN", "PRINCIPALMINT", T0, 2], ["LOAN", "PRINCIPALMINT", T0 + 3600, 1],
+    ]);
+    assert.deepEqual([durationSecs(1, 0), durationSecs(1, 1), durationSecs(3, 2), durationSecs(1, 9)], [DAY, 7 * DAY, 90 * DAY, null]);
+});
+
+test("Loopscale rollover: a repay after the first term but inside the rolled one is on time", () => {
+    const terms = { 0: DAY };
+    const borrow = fakeTx({ top: [lsBorrow(300_000_000n, 0)], time: T0, sig: "b" });
+    const roll = fakeTx({ top: [lsRefinance(0)], time: T0 + 20 * 3600, sig: "r" });
+    const repay = fakeTx({ top: [lsRepayAll()], time: T0 + 36 * 3600, sig: "p" });
+    const events = [borrow, repay].flatMap((tx) => loopscale.events(WALLET, tx));
+    const withRoll = withLoopscaleDueDates(events, termStarts(WALLET, [borrow, roll, repay] as any), terms);
+    const noRoll = withLoopscaleDueDates(events, termStarts(WALLET, [borrow, repay] as any), terms);
+    assert.deepEqual(buildLoans(withRoll).map((l) => [l.outcome, l.dueAt]), [[0, T0 + 20 * 3600 + DAY]]);
+    assert.deepEqual(buildLoans(noRoll).map((l) => [l.outcome, l.dueAt]), [[1, T0 + DAY]]);
+});
+
+test("Loopscale: liquidated after the grace = defaulted, before it = liquidated; an unknown index gets no due date", () => {
+    const terms = { 0: DAY };
+    const borrow = fakeTx({ top: [lsBorrow(300_000_000n, 0)], time: T0, sig: "b" });
+    const liqAt = (t: number) => fakeTx({ top: [lsIx("liquidate_ledger", WALLET, 8, Buffer.from([0, 0, 0, 0, 0, 0]))], time: t, sig: `l${t}` });
+    const outcome = (t: number, ts: Record<number, number> = terms) => {
+        const txs = [borrow, liqAt(t)];
+        const ev = withLoopscaleDueDates(txs.flatMap((tx) => loopscale.events(WALLET, tx)), termStarts(WALLET, txs as any), ts);
+        return buildLoans(ev).map((l) => [l.outcome, l.dueAt]);
+    };
+    assert.deepEqual(outcome(T0 + 2 * DAY), [[2, T0 + DAY]]);
+    assert.deepEqual(outcome(T0 + 4 * DAY), [[3, T0 + DAY]]);
+    assert.deepEqual(outcome(T0 + 4 * DAY, {}), [[2, 0]]);
+});
+
+test("Loopscale: a further borrow into an open ledger keeps its due date; a borrow after a full repay starts a new term", () => {
+    const terms = { 0: DAY };
+    const txs = [
+        fakeTx({ top: [lsBorrow(100_000_000n, 0)], time: T0, sig: "b1" }),
+        fakeTx({ top: [lsBorrow(50_000_000n, 0)], time: T0 + 2 * 3600, sig: "b2" }),  // top-up
+        fakeTx({ top: [lsRepayAll()], time: T0 + 23 * 3600, sig: "p1" }),
+        fakeTx({ top: [lsBorrow(70_000_000n, 0)], time: T0 + 2 * DAY, sig: "b3" }),     // new term
+        fakeTx({ top: [lsRepayAll()], time: T0 + 2 * DAY + 3600, sig: "p2" }),
+    ];
+    const events = txs.flatMap((tx) => loopscale.events(WALLET, tx));
+    const loans = buildLoans(withLoopscaleDueDates(events, termStarts(WALLET, txs as any), terms));
+    assert.deepEqual(loans.map((l) => [l.outcome, l.dueAt]), [[0, T0 + DAY], [0, T0 + 3 * DAY]]);
 });
