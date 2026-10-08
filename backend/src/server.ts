@@ -5,7 +5,7 @@ try {
 }
 import express from "express";
 import cors from "cors";
-import { Connection, Keypair } from "@solana/web3.js";
+import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import { createPool } from "./history/db";
 import { migrate } from "./history/store";
 import { importHistoryRouter, importRouter } from "./history/routes";
@@ -13,6 +13,8 @@ import { liveSources } from "./history/prices";
 import { ADAPTERS, walletHistory } from "./history/adapters";
 import { buildLoans } from "./history/buildLoans";
 import { scoreRouter } from "./score/routes";
+import { faucetRouter } from "./faucet/routes";
+import { migrateFaucet } from "./faucet/faucet";
 
 function required(name: string): string {
     const v = process.env[name];
@@ -42,9 +44,20 @@ app.use(
     }),
 );
 app.use(scoreRouter({ pool, connection }));
+// Test-USDC faucet: its own key, the tUSDC mint authority (separate from the writer key).
+app.use(
+    faucetRouter({
+        pool,
+        connection,
+        faucet: Keypair.fromSecretKey(new Uint8Array(JSON.parse(required("FAUCET_PRIVATE_KEY")))),
+        mint: new PublicKey(required("TUSDC_MINT")),
+        now: () => Math.floor(Date.now() / 1000),
+    }),
+);
 
 const port = Number(process.env.PORT || 3000);
 migrate(pool)
+    .then(() => migrateFaucet(pool))
     .then(() => app.listen(port, () => console.log(`listening on port ${port}`)))
     .catch((err) => {
         console.error("database migration failed:", err);
