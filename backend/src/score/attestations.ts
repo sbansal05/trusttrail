@@ -5,8 +5,17 @@ import { PublicKey, type Connection } from "@solana/web3.js";
 
 export const SAS_PROGRAM_ID = new PublicKey("22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG");
 export const REPAYMENT_SCHEMA = new PublicKey("3q96PNm9Dv6wiR6ZkmJJDm9uUQZUKvqPH8su9Born1A9");
+export const SAS_CREDENTIAL = new PublicKey("HqhwM4J9UoJBq2HGBPn32QN1y7gkASPdX5nxBLCY5sje");
 /** TrustTrail's PDA ["sas-signer"], the only signer on our credential. */
 export const SAS_SIGNER = new PublicKey("H8NYeSriRSJ6BPQuLmtWsmcQutTvt2hVTuHoZBV9Ry6Y");
+
+/** One attestation per loan: SAS PDA ["attestation", credential, schema, nonce = the Loan account]. */
+export function attestationPda(loan: PublicKey): PublicKey {
+    return PublicKey.findProgramAddressSync(
+        [Buffer.from("attestation"), SAS_CREDENTIAL.toBuffer(), REPAYMENT_SCHEMA.toBuffer(), loan.toBuffer()],
+        SAS_PROGRAM_ID,
+    )[0];
+}
 
 /**
  * SAS Attestation account: discriminator u8, nonce, credential, schema (32 each), data (u32 length + bytes),

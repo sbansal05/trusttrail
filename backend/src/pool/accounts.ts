@@ -4,6 +4,8 @@
 import { PublicKey, SystemProgram, TransactionInstruction } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { discriminator } from "../history/importTx";
+import { TRUSTTRAIL_PROGRAM_ID, reputationPda, whitelistPda } from "../history/chain";
+import { REPAYMENT_SCHEMA, SAS_CREDENTIAL, SAS_PROGRAM_ID, SAS_SIGNER, attestationPda } from "../score/attestations";
 
 export const POOL_PROGRAM_ID = new PublicKey("Eg1s6qF3UhrUYuccyKy9pMBqDQd4beQjYYYZdGs4EkWL");
 export const WSOL_MINT = new PublicKey("So11111111111111111111111111111111111111112");
@@ -15,7 +17,19 @@ export const vaultPda = () => pda(Buffer.from("vault"), poolPda().toBuffer());
 export const lpMintPda = () => pda(Buffer.from("lp"), poolPda().toBuffer());
 export const collateralConfigPda = (mint: PublicKey) => pda(Buffer.from("collateral"), mint.toBuffer());
 export const collateralVaultPda = (mint: PublicKey) => pda(Buffer.from("coll"), poolPda().toBuffer(), mint.toBuffer());
+export const borrowerStatePda = (borrower: PublicKey) => pda(Buffer.from("borrower"), borrower.toBuffer());
+export function loanPda(borrower: PublicKey, loanId: bigint): PublicKey {
+    const id = Buffer.alloc(8);
+    id.writeBigUInt64LE(loanId);
+    return pda(Buffer.from("loan"), borrower.toBuffer(), id);
+}
 
+/** BorrowerState: 8 discriminator, wallet 32, largest_repaid u64, next_loan_id u64, open_loans u16, bump. */
+export function parseBorrowerState(data: Buffer): { largestRepaid: bigint; nextLoanId: bigint; openLoans: number } {
+    return { largestRepaid: data.readBigUInt64LE(40), nextLoanId: data.readBigUInt64LE(48), openLoans: data.readUInt16LE(56) };
+}
+
+// ---------- Pyth ----------
 
 /** Pyth's push-oracle program: it keeps the sponsored price feed accounts updated. */
 export const PYTH_PUSH_ORACLE_ID = new PublicKey("pythWSnswVUd12oZpeFP8e9CVaEqJg25g1Vtc2biRsT");
@@ -53,6 +67,7 @@ export function parsePriceUpdate(data: Buffer): PriceUpdate | null {
     };
 }
 
+// ---------- Instructions ----------
 
 const ro = (pubkey: PublicKey) => ({ pubkey, isSigner: false, isWritable: false });
 const rw = (pubkey: PublicKey) => ({ pubkey, isSigner: false, isWritable: true });
@@ -99,5 +114,49 @@ export function depositIx(lender: PublicKey, lenderUsdc: PublicKey, lenderLp: Pu
             rw(poolPda()), rw(vaultPda()), rw(lpMintPda()), rw(lenderUsdc), rw(lenderLp), ro(TOKEN_PROGRAM_ID),
         ],
         data: Buffer.concat([discriminator("deposit"), a]),
+    });
+}
+
+const u64s = (...ns: bigint[]) => {
+    const b = Buffer.alloc(8 * ns.length);
+    ns.forEach((n, i) => b.writeBigUInt64LE(n, 8 * i));
+    return b;
+};
+
+/** borrow(amount, collateral_amount); `priceUpdate` is a fresh PriceUpdateV2 for the collateral's feed. */
+export function borrowIx(o: {
+    borrower: PublicKey; loanId: bigint; collateralMint: PublicKey; priceUpdate: PublicKey;
+    borrowerCollateral: PublicKey; borrowerUsdc: PublicKey; amount: bigint; collateralAmount: bigint;
+}): TransactionInstruction {
+    return new TransactionInstruction({
+        programId: POOL_PROGRAM_ID,
+        keys: [
+            { pubkey: o.borrower, isSigner: true, isWritable: true },
+            rw(poolPda()), rw(vaultPda()), ro(reputationPda(o.borrower)), rw(borrowerStatePda(o.borrower)),
+            rw(loanPda(o.borrower, o.loanId)), ro(collateralConfigPda(o.collateralMint)), rw(collateralVaultPda(o.collateralMint)),
+            ro(o.priceUpdate), rw(o.borrowerCollateral), rw(o.borrowerUsdc),
+            ro(TOKEN_PROGRAM_ID), ro(SystemProgram.programId),
+        ],
+        data: Buffer.concat([discriminator("borrow"), u64s(o.amount, o.collateralAmount)]),
+    });
+}
+
+/** repay(): pays the whole debt, returns the collateral, and has TrustTrail write the score and the SAS record. */
+export function repayIx(o: {
+    borrower: PublicKey; loan: PublicKey; collateralMint: PublicKey; borrowerCollateral: PublicKey; borrowerUsdc: PublicKey;
+}): TransactionInstruction {
+    return new TransactionInstruction({
+        programId: POOL_PROGRAM_ID,
+        keys: [
+            { pubkey: o.borrower, isSigner: true, isWritable: true },
+            rw(poolPda()), rw(vaultPda()), rw(o.loan), rw(borrowerStatePda(o.borrower)),
+            ro(collateralConfigPda(o.collateralMint)), rw(collateralVaultPda(o.collateralMint)),
+            rw(o.borrowerCollateral), rw(o.borrowerUsdc),
+            // ScoreAccounts, in the pool's order
+            ro(whitelistPda()), rw(reputationPda(o.borrower)), ro(SAS_SIGNER), ro(SAS_CREDENTIAL), ro(REPAYMENT_SCHEMA),
+            rw(attestationPda(o.loan)), ro(SAS_PROGRAM_ID), ro(TRUSTTRAIL_PROGRAM_ID),
+            ro(TOKEN_PROGRAM_ID), ro(SystemProgram.programId),
+        ],
+        data: discriminator("repay"),
     });
 }
