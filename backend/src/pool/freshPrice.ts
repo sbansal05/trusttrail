@@ -7,11 +7,18 @@ import type { Connection, Keypair, PublicKey, TransactionInstruction } from "@so
 import { HermesClient } from "@pythnetwork/hermes-client";
 import { PythSolanaReceiver } from "@pythnetwork/pyth-solana-receiver";
 
-export const HERMES_URL = "https://hermes.pyth.network";
+export const HERMES_URL = "https://pyth.dourolabs.app/hermes";
+
+/** Hermes needs an API key (sent as a Bearer token); it stays on the backend. */
+function hermesClient(): HermesClient {
+    const accessToken = process.env.PYTH_API_KEY;
+    if (!accessToken) throw new Error("PYTH_API_KEY is not set");
+    return new HermesClient(HERMES_URL, { accessToken });
+}
 
 /** The latest update for a feed, plus its price as a number (for sizing collateral). */
 export async function latestUpdate(feedId: Buffer): Promise<{ data: string; price: number }> {
-    const hermes = new HermesClient(HERMES_URL);
+    const hermes = hermesClient();;
     const u = await hermes.getLatestPriceUpdates([feedId.toString("hex")], { encoding: "base64", parsed: true });
     const p = u.parsed?.[0]?.price;
     if (!u.binary.data[0] || !p) throw new Error("Hermes returned no update");
