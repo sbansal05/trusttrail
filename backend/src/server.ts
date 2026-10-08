@@ -15,6 +15,8 @@ import { buildLoans } from "./history/buildLoans";
 import { scoreRouter } from "./score/routes";
 import { faucetRouter } from "./faucet/routes";
 import { migrateFaucet } from "./faucet/faucet";
+import { priceRouter } from "./pool/priceRoutes";
+import { latestUpdate } from "./pool/freshPrice";
 
 function required(name: string): string {
     const v = process.env[name];
@@ -54,6 +56,10 @@ app.use(
         now: () => Math.floor(Date.now() / 1000),
     }),
 );
+// Signed Pyth updates for the frontend's borrow and liquidate. The key is checked here so a missing one
+// stops the deploy instead of the first borrow.
+required("PYTH_API_KEY");
+app.use(priceRouter({ fetch: latestUpdate, nowMs: Date.now }));
 
 const port = Number(process.env.PORT || 3000);
 migrate(pool)
