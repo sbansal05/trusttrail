@@ -22,7 +22,7 @@ import type { HermesUpdate } from "./freshPrice";
 import {
     BPS, DEFAULT_GRACE_SECS, LOAN_BORROWER_OFFSET, LOAN_DISCRIMINATOR, LOAN_OPEN, LOAN_STATUS_OFFSET, TIER_COLLATERAL_BPS,
     TIER_MAX_LOAN, accrue, collateralValue, debtNow, lenderApyBps, maxLoan, minCollateral, parseCollateral, parseLoan,
-    parsePool, tierRatesBps, utilizationBps, type CollateralState, type LoanState, type PoolState,
+    parsePool, tierRatesBps, totalAssets, utilizationBps, type CollateralState, type LoanState, type PoolState,
 } from "./state";
 
 export const COLLATERAL_BUFFER_BPS = 500n;
@@ -54,14 +54,14 @@ export type PoolDeps = {
 
 const mintOf = (deps: PoolDeps, s: CollateralSymbol) => (s === "SOL" ? WSOL_MINT : deps.usdcMint);
 export const collateralAccount = (wallet: PublicKey) => PublicKey.createWithSeed(wallet, COLLATERAL_ACCOUNT_SEED, TOKEN_PROGRAM_ID);
-const tokenAmount = (data: Buffer | undefined) => (data && data.length >= 72 ? data.readBigUInt64LE(64) : 0n);
-const b64 = (tx: VersionedTransaction) => Buffer.from(tx.serialize()).toString("base64");
+export const tokenAmount = (data: Buffer | undefined) => (data && data.length >= 72 ? data.readBigUInt64LE(64) : 0n);
+export const b64 = (tx: VersionedTransaction) => Buffer.from(tx.serialize()).toString("base64");
 
 type Collateral = CollateralState & { symbol: CollateralSymbol; price: number | null; lowPrice: bigint | null; expo: number; publishTime: number | null };
 
-type Market = { now: number; pool: PoolState; idle: bigint; rates: bigint[]; collaterals: Collateral[] };
+export type Market = { now: number; pool: PoolState; idle: bigint; rates: bigint[]; collaterals: Collateral[] };
 
-async function readMarket(deps: PoolDeps): Promise<Market> {
+export async function readMarket(deps: PoolDeps): Promise<Market> {
     const mints = SYMBOLS.map((s) => mintOf(deps, s));
     const [poolInfo, clock, ...cfgInfos] = await deps.connection.getMultipleAccountsInfo([
         poolPda(), SYSVAR_CLOCK_PUBKEY, ...mints.map(collateralConfigPda),
@@ -101,8 +101,7 @@ export async function getPoolView(deps: PoolDeps) {
         asOf: m.now,
         idleUsdc: m.idle.toString(),
         totalBorrowedUsdc: m.pool.totalBorrowed.toString(),
-        totalAssetsUsdc: (m.idle + m.pool.totalBorrowed - m.pool.protocolFees).toString(),
-        badDebtUsdc: m.pool.badDebt.toString(),
+        totalAssetsUsdc: totalAssets(m.pool, m.idle).toString(),        badDebtUsdc: m.pool.badDebt.toString(),
         utilizationBps: Number(utilizationBps(m.pool.totalBorrowed, m.idle)),
         lenderApyBps: Number(lenderApyBps(m.pool, m.idle)),
         reserveFactorBps: Number(m.pool.reserveFactorBps),
@@ -162,7 +161,7 @@ async function openLoans(deps: PoolDeps, wallet: PublicKey): Promise<{ address: 
         .sort((a, b) => a.loan.openedAt - b.loan.openedAt);
 }
 
-function loanView(m: Market, address: PublicKey, l: LoanState) {
+export function loanView(m: Market, address: PublicKey, l: LoanState) {
     const debt = debtNow(l.scaledDebt, m.pool.tierIndex[l.tierAtOpen]);
     const c = m.collaterals.find((x) => x.mint.equals(l.collateralMint));
     const value = c && c.lowPrice !== null ? collateralValue(l.collateralAmount, c.decimals, c.lowPrice, c.expo) : null;
@@ -234,7 +233,7 @@ export async function getLoansView(deps: PoolDeps, walletAddress: string) {
 
 export type BorrowRequest = { wallet: string; collateral: CollateralSymbol; amount: bigint; collateralAmount?: bigint };
 
-async function versioned(connection: Connection, payer: PublicKey, instructions: TransactionInstruction[]): Promise<VersionedTransaction> {
+export async function versioned(connection: Connection, payer: PublicKey, instructions: TransactionInstruction[]): Promise<VersionedTransaction> {
     const { blockhash } = await connection.getLatestBlockhash("confirmed");
     return new VersionedTransaction(new TransactionMessage({ payerKey: payer, recentBlockhash: blockhash, instructions }).compileToV0Message());
 }

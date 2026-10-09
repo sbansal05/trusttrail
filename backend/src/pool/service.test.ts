@@ -2,12 +2,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Keypair, PublicKey, SYSVAR_CLOCK_PUBKEY, SystemProgram, VersionedTransaction, type TransactionInstruction } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-token";
-import { FEED_IDS, POOL_PROGRAM_ID, WSOL_MINT, collateralConfigPda, loanPda, poolPda, sponsoredFeedAccount } from "./accounts";
+import { FEED_IDS, POOL_PROGRAM_ID, WSOL_MINT, collateralConfigPda, loanPda, lpMintPda, poolPda, sponsoredFeedAccount } from "./accounts";
 import { LOAN_DISCRIMINATOR, WAD, accountDiscriminator } from "./state";
 import { TRUSTTRAIL_PROGRAM_ID } from "../history/chain";
 import {
     COLLATERAL_BUFFER_BPS, PoolRequestError, collateralAccount, getLoansView, getPoolView, prepareBorrow, prepareRepay, type PoolDeps,
 } from "./service";
+import { getLenderView, getPoolLoansView, prepareDeposit, prepareWithdraw } from "./lender";
 
 const U = 1_000_000n;
 const NOW = 1_800_000_000;
@@ -220,4 +221,82 @@ test("repay: needs the debt in tUSDC, only the borrower may repay, returned coll
     const rt = await prepareRepay(t.deps, me.toBase58(), loan.toBase58());
     const ttx = VersionedTransaction.deserialize(Buffer.from(rt.transactions[0], "base64"));
     assert.equal(ttx.message.compiledInstructions.length, 2); // repay, move the collateral back to the usual account
+});
+
+// ---------- lender side ----------
+
+const mintData = (supply: bigint) => {
+    const d = Buffer.alloc(82);
+    d.writeBigUInt64LE(supply, 36);
+    return d;
+};
+
+/** 10,000 idle + 500 lent = 10,500 tUSDC owned by 10,000 shares (1 share = 1.05); this lender holds 1,000 shares. */
+function lenderSetup(o: { tusdc?: bigint; shares?: bigint; idle?: bigint } = {}) {
+    const me = Keypair.generate().publicKey;
+    const lp = getAssociatedTokenAddressSync(lpMintPda(), me);
+    const { deps } = setup({
+        accounts: [
+            [poolPda(), info(poolData({ totalBorrowed: 10_500n * U - (o.idle ?? 10_000n * U) }))],
+            [VAULT, info(tokenData(o.idle ?? 10_000n * U), TOKEN_PROGRAM_ID)],
+            [lpMintPda(), info(mintData(10_000n * U), TOKEN_PROGRAM_ID)],
+            [lp, info(tokenData(o.shares ?? 1_000n * U), TOKEN_PROGRAM_ID)],
+            [getAssociatedTokenAddressSync(USDC, me), info(tokenData(o.tusdc ?? 200n * U), TOKEN_PROGRAM_ID)],
+        ],
+    });
+    return { me: me.toBase58(), deps };
+}
+
+const programsIn = (b64tx: string) => {
+    const tx = VersionedTransaction.deserialize(Buffer.from(b64tx, "base64"));
+    return tx.message.compiledInstructions.map((ix) => tx.message.staticAccountKeys[ix.programIdIndex].toBase58());
+};
+const refusedWith = (p: Promise<unknown>, message: RegExp) =>
+    assert.rejects(p, (e: unknown) => e instanceof PoolRequestError && e.status === 400 && message.test(e.message));
+
+test("GET /pool/loans: open loans with their borrower and health, every loan counted by tier and outcome", async () => {
+    const a = Keypair.generate().publicKey, b = Keypair.generate().publicKey;
+    const { deps } = setup({
+        loans: [
+            [loanPda(a, 0n), loanData({ borrower: a, mint: WSOL_MINT, collateral: 1_385_037_350n, scaled: 100n * U, dueAt: NOW + 86_400 })],
+            [loanPda(b, 0n), loanData({ borrower: b, mint: USDC, collateral: 157n * U, scaled: 100n * U, dueAt: NOW - 86_400, status: 1 })],
+        ],
+    });
+    const v = await getPoolLoansView(deps);
+    assert.deepEqual(v.open.map((l) => [l.borrower, l.healthBps, l.state]), [[a.toBase58(), 15_999, "active"]]);
+    assert.deepEqual(v.byTier[0], { tier: 0, name: "unproven", loans: 2, lentUsdc: "200000000", open: 1, repaid: 1, liquidated: 0, defaulted: 0 });
+    assert.equal(v.byTier[3].loans, 0);
+});
+
+test("GET /lender: value of the shares at the pool's share price, share of the pool, what can leave now", async () => {
+    const l = lenderSetup();
+    const stranger = await getLenderView(l.deps, Keypair.generate().publicKey.toBase58());
+    assert.deepEqual([stranger.shares, stranger.valueUsdc, stranger.shareOfPoolBps], ["0", "0", 0], "a wallet with no shares");
+    const v = await getLenderView(l.deps, l.me);
+    assert.deepEqual([v.shares, v.valueUsdc, v.shareOfPoolBps, v.withdrawableUsdc, v.tusdc], ["1000000000", "1050000000", 1_000, "1050000000", "200000000"]);
+    const thin = lenderSetup({ idle: 300n * U });
+    assert.equal((await getLenderView(thin.deps, thin.me)).withdrawableUsdc, "300000000", "only idle tUSDC can leave");
+});
+
+test("deposit: shares at the share price, LP account created if needed; refused without the tUSDC", async () => {
+    const l = lenderSetup();
+    const r = await prepareDeposit(l.deps, l.me, 105n * U);
+    assert.equal(r.shares, "100000000"); // 105 tUSDC at 1.05 a share
+    assert.deepEqual(programsIn(r.transactions[0]).slice(1), [POOL_PROGRAM_ID.toBase58()]);
+    await refusedWith(prepareDeposit(l.deps, l.me, 300n * U), /not enough tUSDC/);
+    await refusedWith(prepareDeposit(l.deps, l.me, 0n), /above zero/);
+});
+
+test("withdraw: an amount becomes shares rounded down, all burns every share; refused past the shares or the idle tUSDC", async () => {
+    const l = lenderSetup();
+    const some = await prepareWithdraw(l.deps, l.me, { amount: 105n * U });
+    assert.deepEqual([some.shares, some.amountUsdc], ["100000000", "105000000"]);
+    assert.equal(programsIn(some.transactions[0]).at(-1), POOL_PROGRAM_ID.toBase58());
+    const all = await prepareWithdraw(l.deps, l.me, { all: true });
+    assert.deepEqual([all.shares, all.amountUsdc], ["1000000000", "1050000000"]);
+    await refusedWith(prepareWithdraw(l.deps, l.me, { amount: 2_000n * U }), /more than this wallet's shares/);
+    const none = lenderSetup({ shares: 0n });
+    await refusedWith(prepareWithdraw(none.deps, none.me, { all: true }), /no pool shares/);
+    const thin = lenderSetup({ idle: 100n * U });
+    await refusedWith(prepareWithdraw(thin.deps, thin.me, { amount: 105n * U }), /idle tUSDC/);
 });
