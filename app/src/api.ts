@@ -236,3 +236,40 @@ export const prepareBorrow = (wallet: string, collateral: CollateralSymbol, amou
 
 export const prepareRepay = (wallet: string, loan: string) =>
     post<{ loan: string; debtUsdc: string; transactions: string[] }>("/repay/prepare", { wallet, loan });
+
+
+// ---------- lenders ----------
+
+export type PoolLoan = LoanView & { borrower: string };
+
+export type TierRecord = {
+    tier: number;
+    name: string;
+    loans: number;
+    lentUsdc: string;
+    open: number;
+    repaid: number;
+    liquidated: number;
+    defaulted: number;
+};
+
+export type PoolLoansView = { asOf: number; open: PoolLoan[]; byTier: TierRecord[] };
+
+export type LenderView = {
+    wallet: string;
+    asOf: number;
+    tusdc: string;
+    shares: string;
+    valueUsdc: string;
+    shareOfPoolBps: number;
+    withdrawableUsdc: string;
+};
+
+export type PreparedLender = { shares: string; amountUsdc: string; transactions: string[] };
+
+export const getPoolLoans = () => call<PoolLoansView>("/pool/loans");
+export const getLender = (wallet: string) => call<LenderView>(`/lender/${wallet}`);
+export const prepareDeposit = (wallet: string, amount: string) => post<PreparedLender>("/deposit/prepare", { wallet, amount });
+/** `amount` in micro-tUSDC, or "all" to burn every share. */
+export const prepareWithdraw = (wallet: string, amount: string) =>
+    post<PreparedLender>("/withdraw/prepare", amount === "all" ? { wallet, all: true } : { wallet, amount });
