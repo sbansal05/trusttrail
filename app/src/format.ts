@@ -35,3 +35,16 @@ export function day(secs: number | null): string {
     if (!secs) return "—";
     return new Date(secs * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
+
+
+export function parseUnits(text: string, decimals: number): bigint | null {
+    const m = /^(\d*)(?:\.(\d*))?$/.exec(text.trim());
+    if (!m || (m[1] === "" && !m[2])) return null;
+    const frac = (m[2] ?? "").slice(0, decimals).padEnd(decimals, "0");
+    return BigInt(m[1] || "0") * 10n ** BigInt(decimals) + BigInt(frac || "0");
+}
+
+export function formatUnits(amount: string | bigint, decimals: number, digits = decimals): string {
+    const n = Number(BigInt(amount)) / 10 ** decimals;
+    return n.toLocaleString("en-US", { maximumFractionDigits: digits, useGrouping: false });
+}

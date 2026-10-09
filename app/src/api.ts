@@ -149,3 +149,90 @@ export async function getLatestImport(wallet: string): Promise<PublicImport | nu
 
 export const claimFaucet = (wallet: string) =>
     post<{ signature: string; amount: string; nextClaimAt: number }>("/faucet", { wallet });
+
+
+// ---------- pool ----------
+
+export type CollateralSymbol = "SOL" | "tUSDC";
+
+export type CollateralInfo = {
+    symbol: CollateralSymbol;
+    mint: string;
+    decimals: number;
+    minTier: number;
+    liqThresholdBps: number;
+    liqBonusBps: number;
+    maxAgeSecs: number;
+    price: number | null;
+    priceAt: number | null;
+};
+
+export type PoolView = {
+    pool: string;
+    asOf: number;
+    idleUsdc: string;
+    totalBorrowedUsdc: string;
+    totalAssetsUsdc: string;
+    badDebtUsdc: string;
+    utilizationBps: number;
+    lenderApyBps: number;
+    reserveFactorBps: number;
+    tiers: { tier: number; name: string; aprBps: number; maxLoanUsdc: string; collateralBps: number }[];
+    collaterals: CollateralInfo[];
+};
+
+export type LoanView = {
+    address: string;
+    loanId: string;
+    tierAtOpen: number;
+    principalUsdc: string;
+    debtUsdc: string;
+    aprBps: number;
+    collateral: { symbol: string; mint: string; amount: string; decimals: number; valueUsdc: string | null; price: number | null };
+    collateralRatioBps: number;
+    healthBps: number | null;
+    liqThresholdBps: number | null;
+    liquidationPrice: number | null;
+    openedAt: number;
+    dueAt: number;
+    graceEndsAt: number;
+    state: "active" | "late" | "defaulted";
+};
+
+export type LoansView = {
+    wallet: string;
+    asOf: number;
+    balances: { solLamports: string; tusdc: string };
+    offer: {
+        tier: number;
+        tierName: string;
+        hasScoreAccount: boolean;
+        maxLoanUsdc: string;
+        tierMaxLoanUsdc: string;
+        largestRepaidUsdc: string;
+        collateralBps: number;
+        aprBps: number;
+        collateralBufferBps: number;
+        collaterals: CollateralInfo[];
+    };
+    loans: LoanView[];
+};
+
+export const getPool = () => call<PoolView>("/pool");
+export const getLoans = (wallet: string) => call<LoansView>(`/loans/${wallet}`);
+
+export type PreparedBorrow = {
+    loan: string;
+    amountUsdc: string;
+    collateral: CollateralSymbol;
+    collateralAmount: string;
+    minCollateral: string;
+    price: number;
+    transactions: string[];
+};
+
+export const prepareBorrow = (wallet: string, collateral: CollateralSymbol, amount: string, collateralAmount?: string) =>
+    post<PreparedBorrow>("/borrow/prepare", { wallet, collateral, amount, collateralAmount });
+
+export const prepareRepay = (wallet: string, loan: string) =>
+    post<{ loan: string; debtUsdc: string; transactions: string[] }>("/repay/prepare", { wallet, loan });
