@@ -16,8 +16,8 @@ import { scoreRouter } from "./score/routes";
 import { faucetRouter } from "./faucet/routes";
 import { migrateFaucet } from "./faucet/faucet";
 import { priceRouter } from "./pool/priceRoutes";
-import { latestUpdate } from "./pool/freshPrice";
-
+import { buildWithFreshPrice, latestUpdate } from "./pool/freshPrice";
+import { poolRouter } from "./pool/routes";
 function required(name: string): string {
     const v = process.env[name];
     if (!v) throw new Error(`${name} is not set`);
@@ -60,6 +60,7 @@ app.use(
 // stops the deploy instead of the first borrow.
 required("PYTH_API_KEY");
 app.use(priceRouter({ fetch: latestUpdate, nowMs: Date.now }));
+app.use(poolRouter({ connection, usdcMint: new PublicKey(required("TUSDC_MINT")), latest: latestUpdate, buildWithPrice: buildWithFreshPrice }));
 
 const port = Number(process.env.PORT || 3000);
 migrate(pool)
