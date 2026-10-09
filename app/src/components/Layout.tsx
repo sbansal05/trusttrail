@@ -13,6 +13,7 @@ export function Layout() {
                         <Link to="/" className="tt-brand">TrustTrail</Link>
                         <nav className="tt-nav" aria-label="Main">
                             <NavLink to="/score">Score</NavLink>
+                            <NavLink to="/borrow">Borrow</NavLink>
                             <NavLink to={recordPath}>Public record</NavLink>
                         </nav>
                     </div>
