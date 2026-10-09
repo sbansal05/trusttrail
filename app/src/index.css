@@ -1,13 +1,22 @@
 :root {
   --tt-bg: #16130F;
   --tt-surface: #201B15;
+  --tt-surface-sunk: #1B1712;
+  --tt-surface-raised: #2A231B;
   --tt-surface-line: #3A322A;
   --tt-accent: #C08A4E;
-  --tt-success: #7BA05B;
+  --tt-accent-soft: #2A2016;
+  --tt-accent-line: #7A5A33;
+  --tt-link: #D9A86C;
+  --tt-success: #A9CC86;
+  --tt-success-bg: #24301B;
+  --tt-warning: #E0B37A;
+  --tt-danger: #E59A87;
+  --tt-danger-bg: #3A1F19;
   --tt-text: #EDE6D8;
-  --tt-text-secondary: #9C9184;
+  --tt-text-secondary: #B5AA9B;
   --tt-text-muted: #5C5449;
-  --tt-font-display: 'Playfair Display', serif;
+  --tt-font-display: 'Fraunces', serif;
   --tt-font-sans: 'IBM Plex Sans', sans-serif;
   --tt-font-mono: 'IBM Plex Mono', monospace;
 }
@@ -16,43 +25,133 @@ body {
   background: var(--tt-bg);
   color: var(--tt-text);
   font-family: var(--tt-font-sans);
+  font-size: 15px;
+  line-height: 1.5;
   margin: 0;
 }
+
+a { color: var(--tt-link); }
+a:hover { color: #EDC48F; }
+h1, h2, h3, p { margin: 0; }
+
 button {
   background: var(--tt-surface);
   color: var(--tt-text);
   border: 1px solid var(--tt-surface-line);
   border-radius: 8px;
   padding: 10px 20px;
+  min-height: 44px;
   font-family: var(--tt-font-sans);
-  font-size: 14px;
+  font-size: 15px;
   cursor: pointer;
   transition: border-color 0.2s ease;
 }
-button:hover {
-  border-color: var(--tt-accent);
-}
-button:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
+button:hover { border-color: var(--tt-accent); }
+button:disabled { opacity: 0.5; cursor: default; }
 
 .tt-button-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: var(--tt-accent);
   color: var(--tt-bg);
   border: none;
+  font-weight: 600;
+  text-decoration: none;
+}
+.tt-button-primary:hover { opacity: 0.85; color: var(--tt-bg); }
+
+.tt-button-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 20px;
   border-radius: 8px;
-  padding: 12px 24px;
-  font-family: var(--tt-font-sans);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: opacity 0.2s ease;
+  border: 1px solid var(--tt-surface-line);
+  color: var(--tt-text);
+  text-decoration: none;
 }
-.tt-button-primary:hover {
-  opacity: 0.85;
+
+input {
+  background: var(--tt-surface-sunk);
+  color: var(--tt-text);
+  border: 1px solid var(--tt-text-muted);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-family: var(--tt-font-mono);
+  font-size: 15px;
 }
-.tt-button-primary:disabled {
-  opacity: 0.5;
-  cursor: default;
+
+/* Layout */
+.tt-header { border-bottom: 1px solid var(--tt-surface-line); }
+.tt-header-inner,
+.tt-page {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 20px 24px;
+  box-sizing: border-box;
 }
+.tt-header-inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
+.tt-page { padding: 32px 24px 48px; display: flex; flex-direction: column; gap: 24px; }
+.tt-page-narrow { max-width: 760px; }
+.tt-row { display: flex; flex-wrap: wrap; gap: 24px; }
+.tt-row > * { flex: 1 1 340px; min-width: 0; }
+.tt-stack { display: flex; flex-direction: column; gap: 12px; }
+
+.tt-brand { font-family: var(--tt-font-display); font-size: 26px; font-weight: 500; color: var(--tt-text); text-decoration: none; }
+.tt-nav { display: flex; gap: 4px; flex-wrap: wrap; }
+.tt-nav a { padding: 10px 14px; border-radius: 8px; color: var(--tt-text-secondary); text-decoration: none; }
+.tt-nav a.active { background: var(--tt-surface-raised); color: var(--tt-text); font-weight: 500; }
+
+/* Surfaces */
+.tt-card {
+  background: var(--tt-surface);
+  border: 1px solid var(--tt-surface-line);
+  border-radius: 16px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-sizing: border-box;
+}
+.tt-card-accent { background: var(--tt-accent-soft); border-color: var(--tt-accent-line); }
+.tt-tile {
+  flex: 1 1 200px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--tt-surface-sunk);
+  border: 1px solid var(--tt-surface-line);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Type */
+.tt-title { font-family: var(--tt-font-display); font-size: 22px; font-weight: 500; }
+.tt-display { font-family: var(--tt-font-display); font-weight: 500; line-height: 1.15; }
+.tt-eyebrow { font-size: 13px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--tt-text-secondary); }
+.tt-muted { font-size: 14px; color: var(--tt-text-secondary); }
+.tt-mono { font-family: var(--tt-font-mono); }
+.tt-big { font-family: var(--tt-font-mono); font-size: 24px; }
+.tt-error { color: var(--tt-danger); font-size: 14px; }
+
+.tt-pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 13px; border: 1px solid var(--tt-text-muted); }
+.tt-pill-good { background: var(--tt-success-bg); color: var(--tt-success); border-color: transparent; }
+.tt-pill-warn { background: var(--tt-accent-soft); color: var(--tt-warning); border-color: transparent; }
+.tt-pill-bad { background: var(--tt-danger-bg); color: var(--tt-danger); border-color: transparent; }
+
+/* Lists and tables */
+.tt-list { margin: 0; padding: 0; list-style: none; }
+.tt-list > li { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--tt-surface-line); }
+.tt-list > li:last-child { border-bottom: none; }
+.tt-table-wrap { overflow-x: auto; }
+.tt-table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 640px; }
+.tt-table th { text-align: left; font-weight: 500; color: var(--tt-text-secondary); padding: 10px 8px; border-bottom: 1px solid var(--tt-surface-line); }
+.tt-table td { padding: 12px 8px; }
+
+.tt-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Wallet adapter button in the TrustTrail look */
+.wallet-adapter-button.wallet-adapter-button-trigger { background: var(--tt-accent); color: var(--tt-bg); font-family: var(--tt-font-sans); font-size: 15px; height: 44px; border-radius: 8px; }
+.wallet-adapter-button.wallet-adapter-button-trigger:not([disabled]):hover { background: #D09A5E; }
