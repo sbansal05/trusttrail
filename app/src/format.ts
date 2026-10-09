@@ -13,6 +13,13 @@ export const PROTOCOL_LABELS: Record<string, string> = {
 /** The protocols every import checks, in the order the screens list them. */
 export const PROTOCOLS = Object.keys(PROTOCOL_LABELS);
 
+/** An open loan's state, as the backend reports it, and how the screens show it. */
+export const LOAN_STATES = {
+    active: { text: "On schedule", tone: "good" },
+    late: { text: "Past due: in the grace period", tone: "warn" },
+    defaulted: { text: "In default: anyone can liquidate it", tone: "bad" },
+} as const;
+
 export const OUTCOMES = [
     { label: "On time", tone: "good" },
     { label: "Late", tone: "warn" },

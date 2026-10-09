@@ -1,16 +1,12 @@
 import { useState } from "react";
 import { ApiError, prepareRepay, type LoanView } from "../api";
 import { explorerTx } from "../config";
-import { day, formatUnits, pctBps, shortAddress, units6 } from "../format";
+import { LOAN_STATES, day, formatUnits, pctBps, shortAddress, units6 } from "../format";
 import { useSendPrepared } from "../useSendPrepared";
 
 const HEALTH_MAX_BPS = 20_000; 
 
-const STATE_LABEL = {
-    active: { text: "On schedule", tone: "good" },
-    late: { text: "Past due: in the grace period", tone: "warn" },
-    defaulted: { text: "In default: anyone can liquidate it", tone: "bad" },
-} as const;
+
 
 /** One open loan: what is owed, the collateral, its health against the liquidation line, and the repay button. */
 export function LoanCard(props: { wallet: string; loan: LoanView; now: number; tusdcBalance: string; onChanged: () => void }) {
@@ -23,7 +19,7 @@ export function LoanCard(props: { wallet: string; loan: LoanView; now: number; t
 
     const short = BigInt(props.tusdcBalance) < BigInt(l.debtUsdc);
     const daysLeft = Math.ceil((l.dueAt - props.now) / 86_400);
-    const state = STATE_LABEL[l.state];
+    const state = LOAN_STATES[l.state];
 
     async function repay() {
         setBusy(true);

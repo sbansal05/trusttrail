@@ -5,6 +5,7 @@ import { ScorePage } from "./pages/ScorePage";
 import { ImportPage } from "./pages/ImportPage";
 import { RecordPage } from "./pages/RecordPage";
 import { BorrowPage } from "./pages/BorrowPage";
+import { PoolPage } from "./pages/PoolPage";
 export default function App() {
     return (
         <BrowserRouter>
@@ -14,6 +15,7 @@ export default function App() {
                     <Route path="score" element={<ScorePage />} />
                     <Route path="score/import" element={<ImportPage />} />
                     <Route path="borrow" element={<BorrowPage />} />
+                    <Route path="pool" element={<PoolPage />} />
                     <Route path="record" element={<RecordPage />} />
                     <Route path="record/:wallet" element={<RecordPage />} />
                     <Route
