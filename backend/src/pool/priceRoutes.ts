@@ -41,7 +41,8 @@ export function priceRouter(deps: PriceDeps): Router {
         const { feed } = req.params;
         if (!isFeed(feed)) return res.status(400).json({ error: "unknown feed", feeds: FEEDS });
         try {
-            res.json({ feed, ...(await latest(feed)) });
+            const { data, price } = await latest(feed);
+            res.json({ feed, data, price });
         } catch (err) {
             console.error("price update failed:", err);
             res.status(502).json({ error: "price update failed" });
