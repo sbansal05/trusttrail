@@ -41,7 +41,7 @@ export function ScorePage() {
                         <Link to={`/record/${wallet}`}>Share public record</Link>
                     </div>
                     <p className="tt-muted">Every pool loan leaves a public Solana Attestation Service record any lender can read.</p>
-                    <RecordsTable records={data.attestations} />
+                    <RecordsTable records={data.attestations} compact />
                 </section>
             </div>
         </main>

@@ -19,6 +19,8 @@
   --tt-font-display: 'Fraunces', serif;
   --tt-font-sans: 'IBM Plex Sans', sans-serif;
   --tt-font-mono: 'IBM Plex Mono', monospace;
+  color-scheme: dark;
+  scrollbar-color: var(--tt-accent-line) var(--tt-surface-sunk);
 }
 
 body {
