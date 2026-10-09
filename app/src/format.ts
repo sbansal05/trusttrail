@@ -1,5 +1,5 @@
 //! Display helpers shared by every screen.
-
+import { PublicKey } from "@solana/web3.js";
 export const TIER_LABELS = ["Unproven", "Bronze", "Silver", "Gold"];
 export const tierLabel = (name: string) => name.charAt(0).toUpperCase() + name.slice(1);
 
@@ -54,4 +54,14 @@ export function parseUnits(text: string, decimals: number): bigint | null {
 export function formatUnits(amount: string | bigint, decimals: number, digits = decimals): string {
     const n = Number(BigInt(amount)) / 10 ** decimals;
     return n.toLocaleString("en-US", { maximumFractionDigits: digits, useGrouping: false });
+}
+
+/** Whether `s` parses as a Solana address (base58, 32 bytes). */
+export function isWallet(s: string): boolean {
+    try {
+        new PublicKey(s);
+        return true;
+    } catch {
+        return false;
+    }
 }

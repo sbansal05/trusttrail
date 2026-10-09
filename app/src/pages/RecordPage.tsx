@@ -1,21 +1,13 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate, useParams } from "react-router";
-import { PublicKey } from "@solana/web3.js";
+import { Link, useNavigate, useParams } from "react-router";
 import { getLatestImport, getScore, type PublicImport, type ScoreView } from "../api";
 import { useAsync } from "../useAsync";
 import { explorerTx } from "../config";
-import { OUTCOMES, PROTOCOL_LABELS, day, shortAddress, tierLabel, usd6 } from "../format";
+import { OUTCOMES, PROTOCOL_LABELS, day, shortAddress, tierLabel, usd6, isWallet } from "../format";
 import { OutcomePill } from "../components/OutcomePill";
 import { RecordsTable } from "../components/RecordsTable";
 
-const isWallet = (s: string) => {
-    try {
-        new PublicKey(s);
-        return true;
-    } catch {
-        return false;
-    }
-};
+
 
 const loadRecord = async (wallet: string): Promise<{ score: ScoreView; latestImport: PublicImport | null }> => {
     const [score, latestImport] = await Promise.all([getScore(wallet), getLatestImport(wallet)]);
@@ -79,6 +71,10 @@ function RecordBody({ score, latestImport }: { score: ScoreView; latestImport: P
                     </div>
                 ))}
             </section>
+
+            <p className="tt-muted">
+                Any lender can read this record from Solana. <Link to={`/partner/${score.wallet}`}>See what Northwind Lend, a demo lender, offers this wallet</Link>.
+            </p>
 
             <section className="tt-card" aria-labelledby="att-h">
                 <h2 id="att-h" className="tt-title">Pool loans (attestations)</h2>
