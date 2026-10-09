@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-    WAD, YEAR_SECS, accrue, baseRateBps, collateralValue, debtNow, growIndex, lenderApyBps, maxLoan, minCollateral,
-    tierRatesBps, utilizationBps, type PoolState,
+    WAD, YEAR_SECS, accrue, assetsForShares, baseRateBps, collateralValue, debtNow, growIndex, lenderApyBps, maxLoan, minCollateral,
+    sharesForDeposit, sharesForWithdraw, tierRatesBps, totalAssets, utilizationBps, type PoolState,
 } from "./state";
 
 const U = 1_000_000n;
@@ -51,4 +51,18 @@ test("collateral: 1.385 SOL at $115.52 is just under $160, and the minimum for 1
     assert.ok(collateralValue(min - 1n, 9, price, expo) < 150n * U);
     // a 6-decimal token at $0.9998: 150 tUSDC of value needs a little over 150 tUSDC
     assert.equal(minCollateral(100n * U, 15_000n, 6, 99_980_000n, -8), 150_030_007n);
+});
+
+
+test("lender shares (same as Rust math.rs): 1 : 1 at first, then by share price, always rounded down", () => {
+    assert.equal(sharesForDeposit(100n * U, 0n, 0n), 100n * U);
+    // 10,000 shares now own 10,500 tUSDC (interest earned): 1 share = 1.05 tUSDC
+    const assets = 10_500n * U, supply = 10_000n * U;
+    assert.equal(sharesForDeposit(105n * U, assets, supply), 100n * U);
+    assert.equal(assetsForShares(100n * U, assets, supply), 105n * U);
+    assert.equal(sharesForWithdraw(105n * U, assets, supply), 100n * U);
+    // 1 micro-tUSDC asks for 0.95 of a share: rounded down to nothing, so the pool never pays out more than it should
+    assert.equal(sharesForWithdraw(1n, assets, supply), 0n);
+    assert.equal(assetsForShares(1n, 0n, 0n), 0n);
+    assert.equal(totalAssets(pool({ totalBorrowed: 100n * U, protocolFees: 1n * U }), 9_900n * U), 9_999n * U);
 });

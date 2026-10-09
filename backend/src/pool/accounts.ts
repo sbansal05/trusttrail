@@ -1,5 +1,5 @@
 //! The devnet pool: program id, PDAs, collateral feeds, and the instructions the admin scripts send.
-//! Seeds and account order follow programs/pool (init_pool, add_collateral, deposit).
+//! Seeds and account order follow programs/pool (init_pool, add_collateral, deposit, withdraw).
 
 import { PublicKey, SystemProgram, TransactionInstruction } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
@@ -104,24 +104,31 @@ export function addCollateralIx(authority: PublicKey, mint: PublicKey, p: Collat
     });
 }
 
-export function depositIx(lender: PublicKey, lenderUsdc: PublicKey, lenderLp: PublicKey, amount: bigint): TransactionInstruction {
-    const a = Buffer.alloc(8);
-    a.writeBigUInt64LE(amount);
+const u64s = (...ns: bigint[]) => {
+    const b = Buffer.alloc(8 * ns.length);
+    ns.forEach((n, i) => b.writeBigUInt64LE(n, 8 * i));
+    return b;
+};
+
+/** deposit(amount) and withdraw(shares) take the same accounts in the same order; only the name and the number differ. */
+function lenderIx(name: "deposit" | "withdraw", lender: PublicKey, lenderUsdc: PublicKey, lenderLp: PublicKey, n: bigint): TransactionInstruction {
     return new TransactionInstruction({
         programId: POOL_PROGRAM_ID,
         keys: [
             { pubkey: lender, isSigner: true, isWritable: false },
             rw(poolPda()), rw(vaultPda()), rw(lpMintPda()), rw(lenderUsdc), rw(lenderLp), ro(TOKEN_PROGRAM_ID),
         ],
-        data: Buffer.concat([discriminator("deposit"), a]),
+        data: Buffer.concat([discriminator(name), u64s(n)]),
     });
 }
 
-const u64s = (...ns: bigint[]) => {
-    const b = Buffer.alloc(8 * ns.length);
-    ns.forEach((n, i) => b.writeBigUInt64LE(n, 8 * i));
-    return b;
-};
+/** deposit(amount): tUSDC from the lender into the vault, LP shares minted to the lender. */
+export const depositIx = (lender: PublicKey, lenderUsdc: PublicKey, lenderLp: PublicKey, amount: bigint) =>
+    lenderIx("deposit", lender, lenderUsdc, lenderLp, amount);
+
+/** withdraw(shares): the lender's shares burned, their tUSDC paid out of the vault. */
+export const withdrawIx = (lender: PublicKey, lenderUsdc: PublicKey, lenderLp: PublicKey, shares: bigint) =>
+    lenderIx("withdraw", lender, lenderUsdc, lenderLp, shares);
 
 /** borrow(amount, collateral_amount); `priceUpdate` is a fresh PriceUpdateV2 for the collateral's feed. */
 export function borrowIx(o: {

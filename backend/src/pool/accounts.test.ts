@@ -1,7 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Keypair, PublicKey } from "@solana/web3.js";
-import { FEED_IDS, POOL_PROGRAM_ID, addCollateralIx, collateralConfigPda, parsePriceUpdate, poolPda, sponsoredFeedAccount } from "./accounts";
+import {
+    FEED_IDS, POOL_PROGRAM_ID, addCollateralIx, collateralConfigPda, depositIx, lpMintPda, parsePriceUpdate, poolPda, sponsoredFeedAccount,
+    vaultPda, withdrawIx,
+} from "./accounts";
+import { discriminator } from "../history/importTx";
+
 
 test("Pyth sponsored feed account for SOL/USD is the published one", () => {
     assert.equal(sponsoredFeedAccount(FEED_IDS.SOL_USD).toBase58(), "7UVimffxr9ow1uXYxsr4LHAcV58mLzhmwaeKvJ1pjLiE");
@@ -25,4 +30,15 @@ test("add_collateral data: feed id, min tier u8, max age u32, threshold u16, bon
     assert.deepEqual([a.subarray(0, 32).equals(FEED_IDS.SOL_USD), a[32], a.readUInt32LE(33), a.readUInt16LE(37), a.readUInt16LE(39), a.length], [true, 0, 60, 11_000, 500, 41]);
     assert.ok(ix.keys[1].pubkey.equals(poolPda()) && ix.keys[3].pubkey.equals(collateralConfigPda(mint)));
     assert.ok(poolPda().equals(PublicKey.findProgramAddressSync([Buffer.from("pool")], POOL_PROGRAM_ID)[0]));
+});
+
+
+test("deposit and withdraw: same accounts, own discriminator, one u64 (amount or shares)", () => {
+    const lender = Keypair.generate().publicKey, usdc = Keypair.generate().publicKey, lp = Keypair.generate().publicKey;
+    const d = depositIx(lender, usdc, lp, 250n), w = withdrawIx(lender, usdc, lp, 7n);
+    assert.deepEqual(d.keys.map((k) => k.pubkey.toBase58()), w.keys.map((k) => k.pubkey.toBase58()));
+    assert.deepEqual(w.keys.slice(0, 6).map((k) => k.pubkey.toBase58()), [lender, poolPda(), vaultPda(), lpMintPda(), usdc, lp].map((k) => k.toBase58()));
+    assert.ok(w.keys[0].isSigner && !w.keys[0].isWritable);
+    assert.ok(d.data.subarray(0, 8).equals(discriminator("deposit")) && w.data.subarray(0, 8).equals(discriminator("withdraw")));
+    assert.deepEqual([d.data.readBigUInt64LE(8), w.data.readBigUInt64LE(8), w.data.length], [250n, 7n, 16]);
 });

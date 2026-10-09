@@ -93,7 +93,9 @@ export type LoanState = {
 export const LOAN_BORROWER_OFFSET = 8;
 export const LOAN_STATUS_OFFSET = 147;
 export const LOAN_OPEN = 0;
-
+export const LOAN_REPAID = 1;
+export const LOAN_LIQUIDATED = 2;
+export const LOAN_DEFAULTED = 3;
 
 export function parseLoan(d: Buffer): LoanState {
     return {
@@ -150,10 +152,12 @@ export function accrue(pool: PoolState, now: number, idle: bigint): PoolState {
         lastAccrual: now,
     };
 }
+/** What lenders own: idle USDC plus what borrowers owe, minus the protocol's fees (the program's total_assets). */
+export const totalAssets = (pool: PoolState, idle: bigint) => idle + pool.totalBorrowed - pool.protocolFees;
 
 /** What lenders earn per year, in bps of what they own: borrower interest minus the protocol's cut. */
 export function lenderApyBps(pool: PoolState, idle: bigint): bigint {
-    const assets = idle + pool.totalBorrowed - pool.protocolFees;
+    const assets = totalAssets(pool, idle);
     if (assets <= 0n) return 0n;
     const rates = tierRatesBps(pool, idle);
     const yearly = pool.tierScaledDebt.reduce((sum, s, t) => sum + ((s * pool.tierIndex[t]) / WAD) * rates[t], 0n);
@@ -188,4 +192,22 @@ export function minCollateral(loan: bigint, ratioBps: bigint, decimals: number, 
     }
     const scaled = needed * 10n ** BigInt(-shift);
     return (scaled + price - 1n) / price;
+}
+
+
+// ---------- lender shares (programs/pool math.rs) ----------
+
+/** LP shares minted for depositing `amount`: 1 : 1 into an empty pool, else amount × supply ÷ assets, rounded down. */
+export function sharesForDeposit(amount: bigint, assets: bigint, supply: bigint): bigint {
+    return supply === 0n || assets === 0n ? amount : (amount * supply) / assets;
+}
+
+/** USDC paid out for burning `shares`: shares × assets ÷ supply, rounded down; nothing when no shares exist. */
+export function assetsForShares(shares: bigint, assets: bigint, supply: bigint): bigint {
+    return supply === 0n ? 0n : (shares * assets) / supply;
+}
+
+/** Shares to burn for a withdraw of about `amount`, rounded down, so the payout is never more than asked. */
+export function sharesForWithdraw(amount: bigint, assets: bigint, supply: bigint): bigint {
+    return assets === 0n ? 0n : (amount * supply) / assets;
 }
