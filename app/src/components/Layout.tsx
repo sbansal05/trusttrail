@@ -1,41 +1,28 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Link, NavLink, Outlet } from "react-router";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 
-export type AsyncState<T> = { data: T | null; error: Error | null; loading: boolean; reload: () => void };
-
-/**
- * Runs `load` when `key` changes, and again on reload(). A null key means "nothing to load yet".
- * A reload keeps showing the old data until the new answer arrives; a new key clears it.
- * An answer that arrives after a newer request started is dropped.
- */
-export function useAsync<T>(key: string | null, load: (key: string) => Promise<T>): AsyncState<T> {
-    const [data, setData] = useState<T | null>(null);
-    const [error, setError] = useState<Error | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [round, setRound] = useState(0);
-    const shownKey = useRef<string | null>(null);
-    const reload = useCallback(() => setRound((r) => r + 1), []);
-
-    useEffect(() => {
-        let current = true;
-        /* eslint-disable react-hooks/set-state-in-effect -- the request starts here, its result lands below */
-        if (shownKey.current !== key) {
-            shownKey.current = key;
-            setData(null);
-        }
-        setError(null);
-        setLoading(key !== null);
-        /* eslint-enable react-hooks/set-state-in-effect */
-        if (key === null) return;
-        load(key)
-            .then((d) => current && setData(d))
-            .catch((e: unknown) => current && setError(e instanceof Error ? e : new Error(String(e))))
-            .finally(() => current && setLoading(false));
-        return () => {
-            current = false;
-        };
-        // `load` is a module-level function in every caller; only the key and reloads matter.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [key, round]);
-
-    return { data, error, loading, reload };
+export function Layout() {
+    const { publicKey } = useWallet();
+    const recordPath = publicKey ? `/record/${publicKey.toBase58()}` : "/record";
+    return (
+        <>
+            <header className="tt-header">
+                <div className="tt-header-inner">
+                    <div style={{ display: "flex", alignItems: "center", gap: 32, flexWrap: "wrap" }}>
+                        <Link to="/" className="tt-brand">TrustTrail</Link>
+                        <nav className="tt-nav" aria-label="Main">
+                            <NavLink to="/score">Score</NavLink>
+                            <NavLink to={recordPath}>Public record</NavLink>
+                        </nav>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <span className="tt-pill tt-mono tt-muted">devnet</span>
+                        <WalletMultiButton />
+                    </div>
+                </div>
+            </header>
+            <Outlet />
+        </>
+    );
 }
