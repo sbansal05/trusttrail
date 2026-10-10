@@ -1092,6 +1092,11 @@ export type Pool = {
       "code": 6013,
       "name": "invalidRiskParams",
       "msg": "Liquidation threshold and bonus do not fit together"
+    },
+    {
+      "code": 6014,
+      "name": "borrowCapReached",
+      "msg": "The pool keeps 10% free for withdrawals; this loan would go past that"
     }
   ],
   "types": [
@@ -1353,7 +1358,7 @@ export type Pool = {
           {
             "name": "badDebt",
             "docs": [
-              "Total debt written off because the collateral could not cover it (lenders took this loss)."
+              "Debt written off that the fee reserve could not cover: the lenders' loss."
             ],
             "type": "u64"
           },
