@@ -313,8 +313,8 @@ test("90% cap: the pool view shows the reserve and the room left; offers and bor
     assert.deepEqual([v.borrowCapBps, v.borrowRoomUsdc, v.reserveUsdc], [9_000, "50000000", "0"]);
 
     const me = Keypair.generate().publicKey.toBase58();
-    assert.equal((await getLoansView(deps, me)).offer.maxLoanUsdc, "50000000", "the tier allows 100, the cap 50");
-    await assert.rejects(
+    const offer = (await getLoansView(deps, me)).offer;
+    assert.deepEqual([offer.maxLoanUsdc, offer.tierMaxLoanUsdc], ["50000000", "100000000"], "the tier allows 100, the cap 50");    await assert.rejects(
         prepareBorrow(deps, { wallet: me, collateral: "SOL", amount: 100n * U }),
         (e: unknown) => e instanceof PoolRequestError && e.status === 400 && /keeps 10% free/.test(e.message) && e.details.roomUsdc === "50000000",
     );

@@ -223,6 +223,7 @@ export async function getLoansView(deps: PoolDeps, walletAddress: string) {
             tierName: TIER_NAMES[b.tier],
             hasScoreAccount: b.hasScoreAccount,
             maxLoanUsdc: (limit < room ? limit : room).toString(),
+            tierMaxLoanUsdc: TIER_MAX_LOAN[b.tier].toString(),
             largestRepaidUsdc: b.largestRepaid.toString(),
             collateralBps: Number(TIER_COLLATERAL_BPS[b.tier]),
             aprBps: Number(m.rates[b.tier]),
