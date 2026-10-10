@@ -177,6 +177,11 @@ export type PoolView = {
     utilizationBps: number;
     lenderApyBps: number;
     reserveFactorBps: number;
+    /** Protocol fees in the vault: they take any bad debt before lenders do. */
+    reserveUsdc: string;
+    /** New borrows stop at this utilization, so the rest stays free for withdrawals. */
+    borrowCapBps: number;
+    borrowRoomUsdc: string;
     tiers: { tier: number; name: string; aprBps: number; maxLoanUsdc: string; collateralBps: number }[];
     collaterals: CollateralInfo[];
 };

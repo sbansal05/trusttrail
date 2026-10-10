@@ -35,8 +35,7 @@ export function PoolPage() {
 
     return (
         <main className="tt-page">
-            <PoolStats pool={pool} />
-            <div className="tt-row" style={{ alignItems: "flex-start" }}>
+            <PoolStats pool={pool} loans={loans} />            <div className="tt-row" style={{ alignItems: "flex-start" }}>
                 <section className="tt-card" style={{ flex: "999 1 560px" }} aria-labelledby="pos-h">
                     <h2 id="pos-h" className="tt-title">Your position</h2>
                     {!wallet ? (
@@ -60,7 +59,11 @@ export function PoolPage() {
     );
 }
 
-function PoolStats({ pool }: { pool: PoolView }) {
+/** When the lent-out tUSDC is back at the latest: the last open loan's grace end (it is repaid or liquidated by then). */
+const allBackBy = (loans: PoolLoansView) => (loans.open.length === 0 ? null : Math.max(...loans.open.map((l) => l.graceEndsAt)));
+
+function PoolStats({ pool, loans }: { pool: PoolView; loans: PoolLoansView }) {
+    const backBy = allBackBy(loans);
     return (
         <section className="tt-card" aria-label="The pool">
             <div className="tt-stack" style={{ gap: 4 }}>
@@ -71,12 +74,25 @@ function PoolStats({ pool }: { pool: PoolView }) {
                     the pool is lent.
                 </span>
             </div>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))", gap: 12 }}>
                 <Tile label="Pool size" value={usd6(pool.totalAssetsUsdc)} />
                 <Tile label="Lent out" value={usd6(pool.totalBorrowedUsdc)} />
                 <Tile label="Available" value={usd6(pool.idleUsdc)} />
                 <Tile label="Utilization" value={pctBps(pool.utilizationBps)} />
+                <Tile label="First-loss reserve" value={usd6(pool.reserveUsdc)} />
                 <Tile label="Bad debt" value={usd6(pool.badDebtUsdc)} />
+            </div>
+            <div className="tt-stack" style={{ gap: 6 }} aria-label="If every lender withdrew now">
+                <span style={{ fontWeight: 600 }}>If every lender withdrew right now</span>
+                <span className="tt-muted">
+                    {backBy === null
+                        ? "Nothing is lent out, so every lender could withdraw in full right now."
+                        : `${usd6(pool.idleUsdc)} could leave at once. The other ${usd6(pool.totalBorrowedUsdc)} comes back as loans are repaid or liquidated, all by ${day(backBy)}.`}
+                </span>
+                <span className="tt-muted" style={{ fontSize: 13 }}>
+                    New loans stop at {pctBps(pool.borrowCapBps, 0)} lent, so at least a tenth of the pool stays free to withdraw. Any bad debt comes
+                    out of the first-loss reserve (the protocol's fees) before lenders lose anything.
+                </span>
             </div>
         </section>
     );
@@ -104,8 +120,7 @@ function TierRates({ pool }: { pool: PoolView }) {
                             <span>{tierLabel(t.name)}</span>
                             <span className="tt-muted" style={{ fontSize: 13 }}>up to ${units6(t.maxLoanUsdc, 0)} · {pctBps(t.collateralBps, 0)} collateral</span>
                         </span>
-                        <span className="tt-mono">{pctBps(t.aprBps)} APR</span>
-                    </li>
+                        <span className="tt-mono" style={{ whiteSpace: "nowrap" }}>{pctBps(t.aprBps)} APR</span>                    </li>
                 ))}
             </ul>
             <p className="tt-muted" style={{ fontSize: 13 }}>Better tiers pay less and lock less collateral, because their record says they repay.</p>
