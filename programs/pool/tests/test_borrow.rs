@@ -107,3 +107,22 @@ fn second_loan_gets_the_next_id() {
     assert_eq!(state.next_loan_id, 2);
     assert_eq!(state.open_loans, 2);
 }
+
+
+#[test]
+fn new_borrows_stop_at_90_percent_so_lenders_can_still_withdraw() {
+    let mut m = market(); // 10,000 USDC in the pool
+    // 90 loans of 100 take the pool to exactly 90% lent
+    for _ in 0..90 {
+        let b = new_borrower(&mut m, 2 * SOL, false);
+        let ix = borrow_ix(&m, &b, 0, 100 * USDC, SOL);
+        assert!(send(&mut m.env.svm, &b.kp, ix));
+    }
+    assert_eq!(balance(&m.env.svm, &m.env.vault), 1_000 * USDC);
+    // The 91st is refused even though 1,000 USDC sits idle: that tenth stays for withdrawals
+    let b = new_borrower(&mut m, 2 * SOL, false);
+    let ix = borrow_ix(&m, &b, 0, 100 * USDC, SOL);
+    assert!(!send(&mut m.env.svm, &b.kp, ix));
+    let pool: PoolConfig = read(&m, &m.env.pool);
+    assert_eq!(pool.total_borrowed, 9_000 * USDC);
+}

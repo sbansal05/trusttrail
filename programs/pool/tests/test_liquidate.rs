@@ -1,6 +1,7 @@
 mod common;
 
 use {
+    anchor_lang::{solana_program::instruction::Instruction, InstructionData, ToAccountMetas},
     common::{market::*, *},
     litesvm_token::CreateMint,
     pool::state::*,
@@ -184,4 +185,38 @@ fn collateral_with_a_threshold_too_low_for_its_bonus_is_refused() {
     assert!(send(&mut m.env.svm, &admin, ix));
     let cfg: CollateralConfig = read(&m, &pda(&[pool::constants::COLLATERAL_SEED, mint.as_ref()]));
     assert_eq!((cfg.liq_threshold_bps, cfg.liq_bonus_bps), (10_500, 200));
+}
+
+
+#[test]
+fn the_fee_reserve_covers_bad_debt_before_lenders() {
+    let mut m = market();
+    let (b, liq) = loan_and_liquidator(&mut m);
+
+    // 20 days of interest: the protocol's 10% cut builds up the reserve
+    let now = T0 + 20 * DAY;
+    set_clock(&mut m.env.svm, now);
+    let ix = Instruction::new_with_bytes(
+        pool::id(),
+        &pool::instruction::AccrueInterest {}.data(),
+        pool::accounts::AccrueInterest { pool: m.env.pool, vault: m.env.vault }.to_account_metas(None),
+    );
+    let admin = m.env.admin.insecure_clone();
+    assert!(send(&mut m.env.svm, &admin, ix));
+    let before: PoolConfig = read(&m, &m.env.pool);
+    let reserve = before.protocol_fees;
+    assert!(reserve > 0);
+    let debt = read::<Loan>(&m, &loan_address(&b, 0)).debt(&before).unwrap();
+
+    // $70: 1 SOL no longer covers the debt
+    set_price(&mut m, SOL_FEED, 7_000_000_000, 0, now);
+    let ix = liquidate_ix(&m, &b, &liq, 0);
+    assert!(send(&mut m.env.svm, &liq.kp, ix));
+
+    let paid = 200 * USDC - balance(&m.env.svm, &liq.usdc);
+    let shortfall = debt - paid;
+    let pool: PoolConfig = read(&m, &m.env.pool);
+    // The reserve was used up first; lenders carry only what was left
+    assert_eq!(pool.protocol_fees, 0);
+    assert_eq!(pool.bad_debt, shortfall - reserve);
 }

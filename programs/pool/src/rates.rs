@@ -39,6 +39,16 @@ pub fn tier_rate_bps(base_bps: u64, spread_bps: i64) -> u64 {
     (base_bps as i64 + spread_bps).max(0) as u64
 }
 
+/// New borrows stop at 90% utilization, so at least a tenth of the pool stays free for lenders to withdraw.
+pub const MAX_BORROW_UTIL_BPS: u64 = 9_000;
+
+/// Whether lending `amount` more keeps utilization at or under MAX_BORROW_UTIL_BPS.
+/// A borrow moves USDC from idle to borrowed, so the pool's total stays the same.
+pub fn within_borrow_cap(borrowed: u64, idle: u64, amount: u64) -> bool {
+    let total = borrowed as u128 + idle as u128;
+    (borrowed as u128 + amount as u128) * BPS as u128 <= MAX_BORROW_UTIL_BPS as u128 * total
+}
+
 /// Index after `dt` seconds at `rate_bps` APR: index × (1 + rate × dt ÷ year).
 pub fn grow_index(index: u128, rate_bps: u64, dt_secs: u64) -> u128 {
     index + index * rate_bps as u128 * dt_secs as u128 / (BPS as u128 * YEAR_SECS as u128)
@@ -72,6 +82,15 @@ mod tests {
         assert_eq!(tier_rate_bps(800, 400), 1_200);
         assert_eq!(tier_rate_bps(800, -150), 650);
         assert_eq!(tier_rate_bps(100, -150), 0);
+    }
+    #[test]
+    fn borrow_cap_keeps_a_tenth_free() {
+        // 10,000 in the pool: 8,000 lent, 2,000 idle
+        assert!(within_borrow_cap(8_000, 2_000, 1_000));   // to exactly 90%
+        assert!(!within_borrow_cap(8_000, 2_000, 1_001));  // one unit past it
+        assert!(within_borrow_cap(0, 10_000, 9_000));
+        assert!(!within_borrow_cap(0, 0, 1));              // an empty pool lends nothing
+        assert!(within_borrow_cap(u64::MAX / 2, u64::MAX / 2, 0));
     }
 
     #[test]

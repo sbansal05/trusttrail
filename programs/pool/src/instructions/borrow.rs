@@ -1,5 +1,6 @@
 use crate::error::PoolError;
 use crate::oracle::collateral_price;
+use crate::rates::within_borrow_cap;
 use crate::terms::*;
 use crate::transfers::{pool_transfer, user_transfer};
 use crate::*;
@@ -77,6 +78,7 @@ pub fn handle_borrow(ctx: Context<Borrow>, amount: u64, collateral_amount: u64) 
     // 2. How much may they borrow?
     require!(amount <= max_loan(tier, a.borrower_state.largest_repaid), PoolError::LoanTooLarge);
     require!(amount <= a.vault.amount, PoolError::InsufficientLiquidity);
+    require!(within_borrow_cap(a.pool.total_borrowed, a.vault.amount, amount), PoolError::BorrowCapReached);
     
     // 3. What is the collateral worth? (Pyth, low end of the confidence range)
     let (price, expo) = collateral_price(&a.price_update, &a.collateral_config, now)?;

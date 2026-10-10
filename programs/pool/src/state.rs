@@ -22,7 +22,7 @@ pub struct PoolConfig {
     pub tier_scaled_debt: [u128; TIERS],
     pub tier_spread_bps: [i16; TIERS],
     pub reserve_factor_bps: u16,
-    /// Total debt written off because the collateral could not cover it (lenders took this loss).
+    /// Debt written off that the fee reserve could not cover: the lenders' loss.
     pub bad_debt: u64,
     pub bump: u8,
     pub vault_bump: u8,
@@ -73,6 +73,16 @@ impl PoolConfig {
         self.tier_scaled_debt[tier] = self.tier_scaled_debt[tier].checked_sub(scaled)?;
         self.total_borrowed = self.total_borrowed.saturating_sub(debt);
         Some(())
+    }
+
+    /// Writes off debt nobody paid. The protocol's fees are the first-loss reserve: they absorb it first,
+    /// and lenders lose only the rest. Returns the lenders' part, which is what `bad_debt` counts.
+    pub fn write_off(&mut self, loss: u64) -> Option<u64> {
+        let covered = loss.min(self.protocol_fees);
+        self.protocol_fees -= covered;
+        let lenders = loss - covered;
+        self.bad_debt = self.bad_debt.checked_add(lenders)?;
+        Some(lenders)
     }
 
     /// Accrue up to the current on-chain time. Every pool instruction calls this first.
@@ -127,6 +137,20 @@ mod tests {
         assert_eq!(p.total_borrowed, 1_002_250_000);                // +5.5%
         assert_eq!(p.protocol_fees, 5_225_000);                     // 10% of 52.25 USDC
         assert_eq!(p.total_assets(50 * U), Some(1_047_025_000));    // lenders: 50 + 1,002.25 − 5.225
+    }
+
+     #[test]
+    fn the_fee_reserve_takes_a_loss_before_lenders() {
+        let mut p = pool();
+        p.protocol_fees = 5 * U;
+        // 3 USDC lost: all from the reserve, lenders whole
+        assert_eq!(p.write_off(3 * U), Some(0));
+        assert_eq!((p.protocol_fees, p.bad_debt), (2 * U, 0));
+        // 10 USDC lost: the last 2 from the reserve, 8 for lenders
+        assert_eq!(p.write_off(10 * U), Some(8 * U));
+        assert_eq!((p.protocol_fees, p.bad_debt), (0, 8 * U));
+        // what lenders own moved by exactly their part: vault 100, nothing lent
+        assert_eq!(p.total_assets(100 * U), Some(100 * U));
     }
 
     #[test]

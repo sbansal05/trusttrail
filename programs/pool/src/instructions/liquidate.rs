@@ -111,9 +111,9 @@ pub fn handle_liquidate(ctx: Context<Liquidate>) -> Result<()> {
     let interest = split.pay.saturating_sub(a.loan.principal);
     a.score.record(parties, a.loan.key(), &a.loan, outcome, interest)?;
 
-    // 5. Books: the whole debt leaves the pool; whatever was not paid is the lenders' loss
+    // 5. Books: the whole debt leaves the pool; what was not paid comes out of the fee reserve first, then the lenders
     let a = &mut *ctx.accounts;
     close_loan(&mut a.pool, &mut a.loan, &mut a.borrower_state, debt, status)?;
-    a.pool.bad_debt = a.pool.bad_debt.checked_add(split.bad_debt).ok_or(PoolError::MathOverflow)?;
+    a.pool.write_off(split.bad_debt).ok_or(PoolError::MathOverflow)?;
     Ok(())
 }

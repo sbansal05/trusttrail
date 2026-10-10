@@ -30,4 +30,6 @@ pub enum PoolError {
     NotLiquidatable,
     #[msg("Liquidation threshold and bonus do not fit together")]
     InvalidRiskParams,
+    #[msg("The pool keeps 10% free for withdrawals; this loan would go past that")]
+    BorrowCapReached,
 }
