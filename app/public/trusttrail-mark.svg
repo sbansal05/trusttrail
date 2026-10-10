@@ -1,9 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="TrustTrail">
   <title>TrustTrail</title>
-  <rect width="512" height="512" rx="112" fill="#16130F"/>
-  <g transform="translate(256 256) scale(0.8) translate(-256 -256)">
   <path d="M222.1 432.4 L86.3 354.0 L86.3 158.0 L222.1 79.6 L222.1 163.6 L159.0 200.0 L159.0 312.0 L217.2 345.6" stroke="#C08A4E" stroke-width="46" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
   <path d="M289.9 432.4 L425.7 354.0 L425.7 158.0 L289.9 79.6 L289.9 163.6 L353.0 200.0 L353.0 312.0 L294.8 345.6" stroke="#EDE6D8" stroke-width="46" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
   <path d="M214 262 L244 292 L300 234" stroke="#EDE6D8" stroke-width="30" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  </g>
 </svg>

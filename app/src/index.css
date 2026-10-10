@@ -101,7 +101,7 @@ input {
 .tt-row > * { flex: 1 1 340px; min-width: 0; }
 .tt-stack { display: flex; flex-direction: column; gap: 12px; }
 
-.tt-brand { font-family: var(--tt-font-display); font-size: 26px; font-weight: 500; color: var(--tt-text); text-decoration: none; }
+.tt-brand { display: inline-flex; align-items: center; gap: 10px; font-family: var(--tt-font-display); font-size: 26px; font-weight: 500; color: var(--tt-text); text-decoration: none; }
 .tt-nav { display: flex; gap: 4px; flex-wrap: wrap; }
 .tt-nav a { padding: 10px 14px; border-radius: 8px; color: var(--tt-text-secondary); text-decoration: none; }
 .tt-nav a.active { background: var(--tt-surface-raised); color: var(--tt-text); font-weight: 500; }
