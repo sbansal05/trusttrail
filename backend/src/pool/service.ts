@@ -20,9 +20,9 @@ import {
 } from "./accounts";
 import type { HermesUpdate } from "./freshPrice";
 import {
-    BPS, DEFAULT_GRACE_SECS, LOAN_BORROWER_OFFSET, LOAN_DISCRIMINATOR, LOAN_OPEN, LOAN_STATUS_OFFSET, TIER_COLLATERAL_BPS,
-    TIER_MAX_LOAN, accrue, collateralValue, debtNow, lenderApyBps, maxLoan, minCollateral, parseCollateral, parseLoan,
-    parsePool, tierRatesBps, totalAssets, utilizationBps, type CollateralState, type LoanState, type PoolState,
+    BPS, DEFAULT_GRACE_SECS, LOAN_BORROWER_OFFSET, LOAN_DISCRIMINATOR, LOAN_OPEN, LOAN_STATUS_OFFSET, MAX_BORROW_UTIL_BPS,
+    TIER_COLLATERAL_BPS, TIER_MAX_LOAN, accrue, borrowRoom, collateralValue, debtNow, lenderApyBps, maxLoan, minCollateral,
+    parseCollateral, parseLoan, parsePool, tierRatesBps, totalAssets, utilizationBps, type CollateralState, type LoanState, type PoolState,
 } from "./state";
 
 export const COLLATERAL_BUFFER_BPS = 500n;
@@ -105,6 +105,10 @@ export async function getPoolView(deps: PoolDeps) {
         utilizationBps: Number(utilizationBps(m.pool.totalBorrowed, m.idle)),
         lenderApyBps: Number(lenderApyBps(m.pool, m.idle)),
         reserveFactorBps: Number(m.pool.reserveFactorBps),
+        // Protocol fees stay in the vault and take any bad debt before lenders do.
+        reserveUsdc: m.pool.protocolFees.toString(),
+        borrowCapBps: Number(MAX_BORROW_UTIL_BPS),
+        borrowRoomUsdc: borrowRoom(m.pool.totalBorrowed, m.idle).toString(),
         tiers: TIER_NAMES.map((name, t) => ({
             tier: t,
             name,
@@ -209,6 +213,7 @@ export async function getLoansView(deps: PoolDeps, walletAddress: string) {
         deps.connection.getAccountInfo(usdcAta),
     ]);
     const limit = maxLoan(b.tier, b.largestRepaid);
+    const room = borrowRoom(m.pool.totalBorrowed, m.idle);
     return {
         wallet: walletAddress,
         asOf: m.now,
@@ -217,8 +222,7 @@ export async function getLoansView(deps: PoolDeps, walletAddress: string) {
             tier: b.tier,
             tierName: TIER_NAMES[b.tier],
             hasScoreAccount: b.hasScoreAccount,
-            maxLoanUsdc: (limit < m.idle ? limit : m.idle).toString(),
-            tierMaxLoanUsdc: TIER_MAX_LOAN[b.tier].toString(),
+            maxLoanUsdc: (limit < room ? limit : room).toString(),
             largestRepaidUsdc: b.largestRepaid.toString(),
             collateralBps: Number(TIER_COLLATERAL_BPS[b.tier]),
             aprBps: Number(m.rates[b.tier]),
@@ -250,6 +254,11 @@ export async function prepareBorrow(deps: PoolDeps, req: BorrowRequest) {
     if (req.amount <= 0n) throw new PoolRequestError(400, "amount must be above zero");
     if (req.amount > limit) throw new PoolRequestError(400, "amount is above this wallet's limit", { maxLoanUsdc: limit.toString() });
     if (req.amount > m.idle) throw new PoolRequestError(400, "the pool does not have that much to lend", { idleUsdc: m.idle.toString() });
+
+    const room = borrowRoom(m.pool.totalBorrowed, m.idle);
+    if (req.amount > room) {
+        throw new PoolRequestError(400, "the pool keeps 10% free for withdrawals; this loan would go past that", { roomUsdc: room.toString() });
+    }
 
     // The pool values collateral at price − confidence of the update posted with this borrow, so size it from that same update.
     const update = await deps.latest(c.feedId);

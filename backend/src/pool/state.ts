@@ -120,6 +120,16 @@ export function utilizationBps(borrowed: bigint, idle: bigint): bigint {
     return total === 0n ? 0n : (borrowed * BPS) / total;
 }
 
+
+/** New borrows stop at 90% utilization, so a tenth of the pool stays free for withdrawals (the program's MAX_BORROW_UTIL_BPS). */
+export const MAX_BORROW_UTIL_BPS = 9_000n;
+
+/** The most the pool will still lend: up to 90% utilization, never below zero (the program's within_borrow_cap). */
+export function borrowRoom(borrowed: bigint, idle: bigint): bigint {
+    const room = (MAX_BORROW_UTIL_BPS * (borrowed + idle)) / BPS - borrowed;
+    return room > 0n ? room : 0n;
+}
+
 /** Two straight lines that meet at the kink: 2% at 0%, 5.5% at 95%, 36% at 100%. */
 export function baseRateBps(util: bigint): bigint {
     const u = util < BPS ? util : BPS;

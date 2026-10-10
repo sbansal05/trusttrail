@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-    WAD, YEAR_SECS, accrue, assetsForShares, baseRateBps, collateralValue, debtNow, growIndex, lenderApyBps, maxLoan, minCollateral,
-    sharesForDeposit, sharesForWithdraw, tierRatesBps, totalAssets, utilizationBps, type PoolState,
+    WAD, YEAR_SECS, accrue, assetsForShares, baseRateBps, borrowRoom, collateralValue, debtNow, growIndex, lenderApyBps, maxLoan,
+    minCollateral, sharesForDeposit, sharesForWithdraw, tierRatesBps, totalAssets, utilizationBps, type PoolState,
 } from "./state";
 
 const U = 1_000_000n;
@@ -65,4 +65,12 @@ test("lender shares (same as Rust math.rs): 1 : 1 at first, then by share price,
     assert.equal(sharesForWithdraw(1n, assets, supply), 0n);
     assert.equal(assetsForShares(1n, 0n, 0n), 0n);
     assert.equal(totalAssets(pool({ totalBorrowed: 100n * U, protocolFees: 1n * U }), 9_900n * U), 9_999n * U);
+});
+
+
+test("borrow cap (same as Rust within_borrow_cap): the pool lends up to 90% and keeps a tenth free", () => {
+    assert.equal(borrowRoom(0n, 10_000n * U), 9_000n * U);
+    assert.equal(borrowRoom(8_000n * U, 2_000n * U), 1_000n * U);
+    assert.equal(borrowRoom(9_500n * U, 500n * U), 0n, "already past the cap");
+    assert.equal(borrowRoom(0n, 0n), 0n);
 });

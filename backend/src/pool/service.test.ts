@@ -300,3 +300,22 @@ test("withdraw: an amount becomes shares rounded down, all burns every share; re
     const thin = lenderSetup({ idle: 100n * U });
     await refusedWith(prepareWithdraw(thin.deps, thin.me, { amount: 105n * U }), /idle tUSDC/);
 });
+
+
+test("90% cap: the pool view shows the reserve and the room left; offers and borrows stop at the cap", async () => {
+    // 8,950 lent + 1,050 idle: 90% of 10,000 is 9,000, so 50 is left to lend
+    const accounts: [PublicKey, Info][] = [
+        [poolPda(), info(poolData({ totalBorrowed: 8_950n * U, unprovenScaled: 8_950n * U }))],
+        [VAULT, info(tokenData(1_050n * U), TOKEN_PROGRAM_ID)],
+    ];
+    const { deps } = setup({ accounts });
+    const v = await getPoolView(deps);
+    assert.deepEqual([v.borrowCapBps, v.borrowRoomUsdc, v.reserveUsdc], [9_000, "50000000", "0"]);
+
+    const me = Keypair.generate().publicKey.toBase58();
+    assert.equal((await getLoansView(deps, me)).offer.maxLoanUsdc, "50000000", "the tier allows 100, the cap 50");
+    await assert.rejects(
+        prepareBorrow(deps, { wallet: me, collateral: "SOL", amount: 100n * U }),
+        (e: unknown) => e instanceof PoolRequestError && e.status === 400 && /keeps 10% free/.test(e.message) && e.details.roomUsdc === "50000000",
+    );
+});
