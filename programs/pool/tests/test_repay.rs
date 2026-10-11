@@ -106,11 +106,11 @@ fn someone_else_cannot_close_your_loan() {
 #[test]
 fn repaying_on_time_unlocks_a_bigger_loan() {
     let mut m = market();
-    let b = new_borrower(&mut m, 4 * SOL, true); // Gold, but nothing repaid yet → limit 100
-    let ix = borrow_ix(&m, &b, 0, 200 * USDC, 2 * SOL);
+    let b = new_borrower(&mut m, 4 * SOL, true); // Gold, but nothing repaid yet → limit 200
+    let ix = borrow_ix(&m, &b, 0, 300 * USDC, 3 * SOL);
     assert!(!send(&mut m.env.svm, &b.kp, ix));
 
-    let ix = borrow_ix(&m, &b, 0, 100 * USDC, SOL);
+    let ix = borrow_ix(&m, &b, 0, 200 * USDC, 2 * SOL);
     assert!(send(&mut m.env.svm, &b.kp, ix));
     mint_usdc(&mut m, &b.usdc, 5 * USDC);
     set_clock(&mut m.env.svm, T0 + 2 * DAY);
@@ -118,7 +118,7 @@ fn repaying_on_time_unlocks_a_bigger_loan() {
     let ix = repay_ix(&m, &b, &b, 0);
     assert!(send(&mut m.env.svm, &b.kp, ix));
 
-    // largest_repaid = 100 → the next loan may be 200
-    let ix = borrow_ix(&m, &b, 1, 200 * USDC, 2 * SOL);
+    // largest_repaid = 200 → the next loan may be 400
+    let ix = borrow_ix(&m, &b, 1, 400 * USDC, 4 * SOL);
     assert!(send(&mut m.env.svm, &b.kp, ix));
 }

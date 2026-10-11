@@ -42,11 +42,21 @@ fn unproven_with_less_than_150_percent_is_rejected() {
 }
 
 #[test]
-fn unproven_cannot_borrow_over_100() {
+fn unproven_cannot_borrow_over_200() {
     let mut m = market();
     let b = new_borrower(&mut m, 5 * SOL, false);
-    let ix = borrow_ix(&m, &b, 0, 101 * USDC, 5 * SOL);
+    let ix = borrow_ix(&m, &b, 0, 201 * USDC, 5 * SOL);
     assert!(!send(&mut m.env.svm, &b.kp, ix));
+}
+
+#[test]
+fn unproven_can_borrow_200_so_a_first_loan_carries_score_weight() {
+    let mut m = market();
+    let b = new_borrower(&mut m, 3 * SOL, false);
+    let ix = borrow_ix(&m, &b, 0, 200 * USDC, 2 * SOL); // 2 SOL = $300 = 150%
+    assert!(send(&mut m.env.svm, &b.kp, ix));
+    let loan: Loan = read(&m, &loan_address(&b, 0));
+    assert_eq!(loan.principal, 200 * USDC);
 }
 
 #[test]

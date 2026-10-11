@@ -23,9 +23,10 @@ pub const COLL_VAULT_SEED: &[u8] = b"coll";
 
 /// Collateral needed, in bps of the loan, by tier (Unproven, Bronze, Silver, Gold).
 pub const TIER_COLLATERAL_BPS: [u64; 4] = [15_000, 14_000, 13_000, 12_000];
-pub const TIER_MAX_LOAN: [u64; 4] = [100_000_000, 250_000_000, 1_000_000_000, 5_000_000_000];
-/// Floor for the growth cap: anyone may borrow up to 100 USDC (if their tier allows).
-pub const MIN_LOAN_CAP: u64 = 100_000_000;
+pub const TIER_MAX_LOAN: [u64; 4] = [200_000_000, 250_000_000, 1_000_000_000, 5_000_000_000];
+/// Floor for the growth cap: anyone may borrow up to 200 USDC (if their tier allows).
+/// 200, not 100: a $100 loan carries no score weight, so a first loan must be able to go above it.
+pub const MIN_LOAN_CAP: u64 = 200_000_000;
 /// Every loan is due 30 days after it opens.
 pub const LOAN_TERM_SECS: i64 = 30 * 86_400;
 /// Pyth's Solana receiver program; it owns every PriceUpdateV2 account.
