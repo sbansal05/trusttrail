@@ -14,8 +14,8 @@ export const KINK_RATE_BPS = 550n;
 export const MAX_RATE_BPS = 3_600n;
 export const KINK_UTIL_BPS = 9_500n;
 export const TIER_COLLATERAL_BPS = [15_000n, 14_000n, 13_000n, 12_000n];
-export const TIER_MAX_LOAN = [100_000_000n, 250_000_000n, 1_000_000_000n, 5_000_000_000n];
-export const MIN_LOAN_CAP = 100_000_000n;
+export const TIER_MAX_LOAN = [200_000_000n, 250_000_000n, 1_000_000_000n, 5_000_000_000n];
+export const MIN_LOAN_CAP = 200_000_000n;
 export const DEFAULT_GRACE_SECS = 3 * 86_400;
 
 export const accountDiscriminator = (name: string) => createHash("sha256").update(`account:${name}`).digest().subarray(0, 8);

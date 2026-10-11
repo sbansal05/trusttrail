@@ -40,7 +40,7 @@ test("lender APY: borrower interest on what is lent, less the protocol's 10%, ov
 test("terms (same as Rust terms.rs): debt rounds up, the loan limit grows with repaid loans", () => {
     assert.equal(debtNow(100n * U, WAD), 100n * U);
     assert.equal(debtNow(1n, WAD + 1n), 2n);
-    assert.deepEqual([maxLoan(0, 0n), maxLoan(2, 0n), maxLoan(2, 300n * U), maxLoan(3, 10_000n * U)], [100n * U, 100n * U, 600n * U, 5_000n * U]);
+    assert.deepEqual([maxLoan(0, 0n), maxLoan(2, 0n), maxLoan(2, 300n * U), maxLoan(3, 10_000n * U)], [200n * U, 200n * U, 600n * U, 5_000n * U]);
 });
 
 test("collateral: 1.385 SOL at $115.52 is just under $160, and the minimum for 100 tUSDC at 150% is just enough", () => {

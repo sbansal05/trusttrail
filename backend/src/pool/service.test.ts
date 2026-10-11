@@ -127,7 +127,7 @@ test("GET /pool: rates per tier from utilization, lender APY, collateral prices 
     const v = await getPoolView(deps);
     assert.equal(v.utilizationBps, 909); // 1,000 of 11,000
     assert.deepEqual(v.tiers.map((t) => t.aprBps), [633, 433, 233, 83]);
-    assert.deepEqual(v.tiers.map((t) => t.maxLoanUsdc), ["100000000", "250000000", "1000000000", "5000000000"]);
+    assert.deepEqual(v.tiers.map((t) => t.maxLoanUsdc), ["200000000", "250000000", "1000000000", "5000000000"]);
     assert.equal(v.lenderApyBps, 51); // 1,000 at 6.33% × 90% ÷ 11,000
     assert.deepEqual(v.collaterals.map((c) => [c.symbol, c.price, c.liqThresholdBps]), [["SOL", 115.52, 11_000], ["tUSDC", 1, 10_500]]);
 });
@@ -140,7 +140,7 @@ test("GET /loans: offer capped by the tier and the growth rule, open loan health
         accounts: [[getAssociatedTokenAddressSync(USDC, me), info(tokenData(42n * U), TOKEN_PROGRAM_ID)]],
     });
     const v = await getLoansView(deps, me.toBase58());
-    assert.deepEqual([v.offer.tierName, v.offer.maxLoanUsdc, v.offer.collateralBps, v.offer.aprBps], ["unproven", "100000000", 15_000, 600]);
+    assert.deepEqual([v.offer.tierName, v.offer.maxLoanUsdc, v.offer.collateralBps, v.offer.aprBps], ["unproven", "200000000", 15_000, 600]);
     assert.equal(v.offer.hasScoreAccount, false);
     assert.equal(v.balances.tusdc, "42000000");
     const l = v.loans[0];
@@ -172,7 +172,7 @@ test("borrow is refused below the minimum collateral, above the limit, or withou
     const refused = (p: Promise<unknown>, status: number, message: RegExp) =>
         assert.rejects(p, (e: unknown) => e instanceof PoolRequestError && e.status === status && message.test(e.message));
     await refused(prepareBorrow(deps, { wallet: me, collateral: "SOL", amount: 100n * U, collateralAmount: 1_000_000_000n }), 400, /not enough collateral/);
-    await refused(prepareBorrow(deps, { wallet: me, collateral: "SOL", amount: 101n * U }), 400, /above this wallet's limit/);
+    await refused(prepareBorrow(deps, { wallet: me, collateral: "SOL", amount: 201n * U }), 400, /above this wallet's limit/);
     await refused(prepareBorrow(deps, { wallet: me, collateral: "SOL", amount: 100n * U }), 400, /not enough SOL/);
 });
 
@@ -314,7 +314,7 @@ test("90% cap: the pool view shows the reserve and the room left; offers and bor
 
     const me = Keypair.generate().publicKey.toBase58();
     const offer = (await getLoansView(deps, me)).offer;
-    assert.deepEqual([offer.maxLoanUsdc, offer.tierMaxLoanUsdc], ["50000000", "100000000"], "the tier allows 100, the cap 50");    await assert.rejects(
+    assert.deepEqual([offer.maxLoanUsdc, offer.tierMaxLoanUsdc], ["50000000", "200000000"], "the tier allows 200, the cap 50");    await assert.rejects(
         prepareBorrow(deps, { wallet: me, collateral: "SOL", amount: 100n * U }),
         (e: unknown) => e instanceof PoolRequestError && e.status === 400 && /keeps 10% free/.test(e.message) && e.details.roomUsdc === "50000000",
     );
