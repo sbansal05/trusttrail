@@ -177,8 +177,7 @@ export function lenderApyBps(pool: PoolState, idle: bigint): bigint {
 
 /** USDC owed now for `scaled` index units, rounded up (the program's debt_now). */
 export const debtNow = (scaled: bigint, index: bigint) => (scaled * index + WAD - 1n) / WAD;
-
-/** Biggest loan a wallet may take: the tier's maximum, and at most twice its largest on-time repay (at least 100 USDC). */
+/** Biggest loan a wallet may take: the tier's maximum, and at most twice its largest on-time repay (at least 200 USDC). */
 export function maxLoan(tier: number, largestRepaid: bigint): bigint {
     const growth = largestRepaid * 2n > MIN_LOAN_CAP ? largestRepaid * 2n : MIN_LOAN_CAP;
     return TIER_MAX_LOAN[tier] < growth ? TIER_MAX_LOAN[tier] : growth;

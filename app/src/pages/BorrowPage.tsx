@@ -72,7 +72,7 @@ function OfferBar({ loans, pool }: { loans: LoansView; pool: PoolView }) {
                 <span className="tt-display" style={{ fontSize: 30 }}>Up to ${units6(o.maxLoanUsdc, 0)} at {pctBps(o.aprBps)} APR</span>
                 {growthCapped && (
                     <span className="tt-muted">
-                        Your tier allows ${units6(o.tierMaxLoanUsdc, 0)}; a new loan can be at most twice your largest on-time repay (at least $100).
+                        Your tier allows ${units6(o.tierMaxLoanUsdc, 0)}; a new loan can be at most twice your largest on-time repay (at least $200).
                     </span>
                 )}
             </div>

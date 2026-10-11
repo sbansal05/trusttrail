@@ -128,7 +128,7 @@ function NextTierCard({ factors }: { factors: Factors }) {
                 })}
             </ul>
             <p className="tt-muted">
-                Import your lending history from Kamino, MarginFi, Save, Jupiter Lend and Loopscale, or repay pool loans of $100+ held at least 24 h.
+                Import your lending history from Kamino, MarginFi, Save, Jupiter Lend and Loopscale, or repay pool loans above $100+ held at least 24 h.
             </p>
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                 <Link to="/score/import" className="tt-button-primary" style={{ padding: "0 22px", minHeight: 44, borderRadius: 8 }}>Import history</Link>
