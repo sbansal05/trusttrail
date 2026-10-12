@@ -16,13 +16,11 @@ jobs:
       - name: Update Rust toolchain
         run: rustup update stable
 
-      
       - name: Setup Solana
         uses: heyAyushh/setup-solana@v5.9
         with:
           solana-cli-version: 4.1.1
 
-      
       - name: Reassert stable Rust toolchain
         run: |
           rustup update stable
@@ -40,23 +38,29 @@ jobs:
       - name: Build program
         run: anchor build
 
-      - name: Run Rust tests
-        run: cargo test --manifest-path programs/trusttrail/Cargo.toml
+      - name: TrustTrail program tests
+        run: cargo test -p trusttrail
 
-  backend-typecheck:
-    name: Backend Type Check
+      - name: Pool program tests (unit + LiteSVM integration)
+        run: cargo test -p pool
+
+  backend:
+    name: Backend (type check + tests)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - name: Install dependencies
         working-directory: backend
         run: npm install
       - name: Type check
         working-directory: backend
         run: npx tsc --noEmit
+      - name: Tests
+        working-directory: backend
+        run: npx tsx --test "src/**/*.test.ts"
 
   frontend-build:
     name: Frontend Build
