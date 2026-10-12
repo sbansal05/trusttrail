@@ -4,7 +4,7 @@
 
 TrustTrail is an on-chain repayment record for Solana wallets, plus a USDC lending pool that prices each loan from it. Repay on time and you post less collateral and pay a lower rate. Any other lender can read the same record straight from Solana.
 
-[Live app](https://trusttrail-ten.vercel.app) · [Launch video]([launch video link]) · [Demo video]([demo video link]) · [Pitch video]([pitch video link]) · [TrustTrail program](https://explorer.solana.com/address/BtgvVKaXQMJsRUdZ8ahuBftnwDpYtass15TqTwsJJA9s?cluster=devnet) · [Pool program](https://explorer.solana.com/address/Eg1s6qF3UhrUYuccyKy9pMBqDQd4beQjYYYZdGs4EkWL?cluster=devnet)
+[Live app](https://trusttrail-ten.vercel.app) · [TrustTrail program](https://explorer.solana.com/address/BtgvVKaXQMJsRUdZ8ahuBftnwDpYtass15TqTwsJJA9s?cluster=devnet) · [Pool program](https://explorer.solana.com/address/Eg1s6qF3UhrUYuccyKy9pMBqDQd4beQjYYYZdGs4EkWL?cluster=devnet)
 
 Everything runs on Solana devnet. tUSDC is the app's own test token, not real USDC.
 
