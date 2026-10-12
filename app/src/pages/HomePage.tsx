@@ -9,7 +9,7 @@ export function HomePage() {
         <main style={{ position: "relative", overflow: "hidden" }}>
             <GuillocheBackground />
             <div className="tt-page" style={{ position: "relative", paddingTop: 72, paddingBottom: 72, maxWidth: 760 }}>
-                <h1 className="tt-display" style={{ fontSize: 48 }}>Your repayment record, portable across Solana</h1>
+                <h1 className="tt-display" style={{ fontSize: 48 }}>Collateral gets you the loan. TrustTrail gets you the price.</h1>
                 <p className="tt-muted" style={{ fontSize: 17 }}>
                     TrustTrail turns the loans you have repaid on Kamino, MarginFi, Save, Jupiter Lend and Loopscale into a score, and
                     every loan you repay here into a public on-chain record any lender can read. Better record, better terms.
