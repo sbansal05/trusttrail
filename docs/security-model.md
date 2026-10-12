@@ -1,0 +1,61 @@
+# Security Model
+
+What TrustTrail protects, what it trusts, and where its limits are today. TrustTrail runs on devnet and has **not been audited**.
+
+## What the code guarantees
+
+### Lenders' money
+
+- **Every loan is fully collateralized.** A loan opens only if the collateral is worth at least 120–150% of it, valued at the low end of Pyth's confidence range.
+- **Prices must be fresh and verified.** Only fully verified Pyth `PriceUpdateV2` accounts, owned by the Pyth receiver, for the configured feed, at most 60 seconds old.
+- **Liquidation is open to anyone** once collateral falls below its threshold (110% SOL, 105% tUSDC) or a loan is 3 days past due, with a 5% (SOL) or 2% (tUSDC) bonus as the incentive.
+- **Bad debt hits the reserve first.** 10% of all interest is kept as a first-loss reserve; lenders lose only what it cannot cover, and the loss is tracked in `bad_debt`.
+- **Withdrawals stay possible.** New loans stop at 90% utilization.
+- **Rounding favours the pool.** Debt rounds up; shares minted and USDC paid out round down.
+- **Risk parameters are checked.** A collateral's liquidation threshold must leave room for its bonus and sit below every tier's required ratio, so no loan can be liquidatable at open.
+
+### Borrowers' records
+
+- **Only whitelisted writers can change a score.** `record_event` and `set_imported_score` check the signer against the whitelist (at most 10, managed by the admin, removable at once with `remove_writer`).
+- **Pool records cannot be skipped.** The pool writes the record in the same transaction as the repayment or liquidation; if the record fails, the whole transaction fails.
+- **One attestation per loan.** The attestation address is derived from the Loan account, so the same loan cannot be recorded twice.
+- **No backdating.** The close time is the on-chain clock.
+- **An import needs the wallet's consent.** `set_imported_score` requires the wallet's own signature next to the writer's, and only once every 15 days.
+- **Bad native history cannot hide behind an import.** The native share of the score grows with every native loan, good or bad ([blend](scoring-model.md#4-blending-with-imported-history)).
+- **Farming is expensive.** Loans of $100 or less carry no weight, weight grows only with the log of the principal, a loan counts in full only after 24 hours, and same-transaction loans are dropped from imports. Each loan that counts costs a day of interest on real collateral.
+
+## What it trusts
+
+| Trusted | For | If it went wrong | Today's mitigation |
+| --- | --- | --- | --- |
+| Whitelisted writers | Telling the truth about loans they record | A writer could record loans that never happened, for any wallet | Admin approves every writer; `remove_writer`; the pool's writer is a PDA only its program code can sign for |
+| Backend import key | Honest import scores | It could import an inflated score for a wallet that co-signs, or call `record_event` itself | Separate key from the admin and the upgrade authority; every import and every loan it counted is public (`GET /import-history`); removable from the whitelist |
+| Price sources for imports | Binance and Birdeye prices at each loan's peak | A wrong price changes a loan's weight | Price, source, time and gap are stored with every loan |
+| Pyth | Collateral prices | A wrong price could open an undercollateralized loan or allow an unfair liquidation | Verified updates only, 60 s max age, low end of the confidence range |
+| Admin key | Whitelist and collateral list | Could add a dishonest writer or a bad collateral | Not stored on the backend |
+| Program upgrade authority | Program code | Could deploy different code | Devnet only; upgrades are public on the explorer |
+
+## Known limits
+
+- **Not audited.** Programs are covered by 111 unit and LiteSVM integration tests and run on devnet only.
+- **Imported history is trusted through the backend.** The plan is to verify it on-chain, or drop the import once native records are enough.
+- **Imported liquidations do not block tiers.** They lower the imported score, but only native liquidations set the 90-day Silver/Gold block.
+- **Unpriced loans are left out of an import,** including their liquidations.
+- **Some import prices assume 1 USDT = $1.**
+- **`liquidated_loans` counts liquidations and defaults together.** The score itself treats them differently (2× and 3× penalties); only this counter merges them.
+- **The cached score in the account can lag** behind the live one (it can only be stricter). The pool always recomputes; other readers should do the same if they need the exact value ([Lender Integration](lender-integration.md#cached-or-live)).
+- **`initialize` makes its first caller the admin.** This was done once at deploy; a fresh deploy must run it right away.
+- **Free Render instance.** The backend sleeps after 15 minutes idle; the first request can take about a minute. The programs and Northwind's read path do not depend on it.
+
+## Keys and secrets
+
+| Key | Where | Never |
+| --- | --- | --- |
+| Backend writer key, faucet key | Render environment variables | in git, in the app bundle |
+| Helius, Pyth Hermes, Birdeye API keys | Render environment variables | in `VITE_` variables (those ship to the browser) |
+| Admin and upgrade authority | developer machine | on the backend |
+| Program keypairs | developer machine | in git |
+
+## Reporting an issue
+
+Open an issue on [GitHub](https://github.com/sbansal05/trusttrail/issues). For anything that could put funds at risk on a future mainnet deployment, ask for a private contact in the issue instead of posting details.

@@ -4,11 +4,11 @@
 
 TrustTrail is an on-chain repayment record for Solana wallets, plus a USDC lending pool that prices each loan from it. Repay on time and you post less collateral and pay a lower rate. Any other lender can read the same record straight from Solana.
 
-[Live app](https://trusttrail-ten.vercel.app) ·  · [TrustTrail program](https://explorer.solana.com/address/BtgvVKaXQMJsRUdZ8ahuBftnwDpYtass15TqTwsJJA9s?cluster=devnet) · [Pool program](https://explorer.solana.com/address/Eg1s6qF3UhrUYuccyKy9pMBqDQd4beQjYYYZdGs4EkWL?cluster=devnet)
+[Live app](https://trusttrail-ten.vercel.app) · [Launch video]([launch video link]) · [Demo video]([demo video link]) · [Pitch video]([pitch video link]) · [TrustTrail program](https://explorer.solana.com/address/BtgvVKaXQMJsRUdZ8ahuBftnwDpYtass15TqTwsJJA9s?cluster=devnet) · [Pool program](https://explorer.solana.com/address/Eg1s6qF3UhrUYuccyKy9pMBqDQd4beQjYYYZdGs4EkWL?cluster=devnet)
 
 Everything runs on Solana devnet. tUSDC is the app's own test token, not real USDC.
 
-## Try it
+## Try it in two minutes
 
 1. Set Phantom or Solflare to **devnet** and get devnet SOL at [faucet.solana.com](https://faucet.solana.com).
 2. Open the [live app](https://trusttrail-ten.vercel.app) and connect. No sign-up.
@@ -82,13 +82,24 @@ Northwind reads the score account in the browser with one `getAccountInfo` call 
 
 Tests: 245, all run by CI on every push: 42 for the TrustTrail program, 69 for the pool program (35 unit, 34 LiteSVM integration) and 134 for the backend.
 
+## Documentation
+
+| Document | Description |
+| --- | --- |
+| [Architecture](docs/architecture.md) | System design, on-chain accounts, borrow, repay, liquidation and import flows |
+| [Scoring Model](docs/scoring-model.md) | Loan weight, outcomes, penalty decay, tier gates, worked examples |
+| [Lending Pool](docs/lending-pool.md) | Tier pricing, loan limits, rate curve, collateral, liquidation |
+| [Programs Reference](docs/programs-reference.md) | Instructions, account layouts, PDA seeds and error codes for both programs |
+| [API Reference](docs/api-reference.md) | All backend endpoints with request and response examples |
+| [Lender Integration](docs/lender-integration.md) | Read a wallet's record in one RPC call, write records as a lender |
+| [History Import](docs/history-import.md) | Five protocol adapters, loan rebuilding, pricing, signed import flow |
+| [Security Model](docs/security-model.md) | What the code guarantees, what it trusts, known limits |
+
 ## Built during the hackathon
 
 TrustTrail v1 (Aug 17 – Sep 10, 2026, before the hackathon) was one Anchor program holding a Helius-based score from Kamino history, a `/score` API, a score page, a Reclaim verify flow and CI. Under 4% of today's 13,000+ lines of Rust and TypeScript date from v1, mostly the Helius client and Kamino decoding that the import reuses. The v1 score, API, page and Reclaim flow have been replaced.
 
 During the hackathon (Sep 25 onward) I built, solo: SAS attestations, scoring v2 with weighted loans and tiers, the writer whitelist, history import from MarginFi, Save, Jupiter Lend and Loopscale, the USDC lending pool program, and a new app with the Borrow, Pool, Import and Northwind pages. Commit dates show the split.
-
-
 
 ## Running locally
 
