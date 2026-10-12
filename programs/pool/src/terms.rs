@@ -124,8 +124,8 @@ mod tests {
 
     #[test]
     fn limits_by_tier_and_growth() {
-        assert_eq!(max_loan(0, 0), 200 * U);              // Unproven: 100
-        assert_eq!(max_loan(3, 0), 200 * U);              // Gold with no repaid loan: still 100
+        assert_eq!(max_loan(0, 0), 200 * U);              // Unproven: 200
+        assert_eq!(max_loan(3, 0), 200 * U);              // Gold with no repaid loan: still 200
         assert_eq!(max_loan(3, 300 * U), 600 * U);        // doubles the largest repaid
         assert_eq!(max_loan(1, 300 * U), 250 * U);        // Bronze tier cap wins
         assert_eq!(max_loan(3, 4_000 * U), 5_000 * U);    // Gold cap wins
