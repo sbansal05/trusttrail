@@ -7,9 +7,6 @@ pub const GLOBAL_CONFIG_SEED: &[u8] = b"global-config";
 pub const HELLO_WORLD_LAMPORTS: u64 = 1;
 
 #[constant]
-pub const USER_REPUTATION_SEED: &[u8] = b"trust-v1";
-
-#[constant]
 pub const USER_REPUTATION_V2_SEED: &[u8] = b"trust-v2";
 
 /// The SAS program. Same address on devnet and mainnet.
