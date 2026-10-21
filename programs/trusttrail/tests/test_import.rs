@@ -12,6 +12,9 @@ use {
     trusttrail::{constants::*, state::UserReputationV2},
 };
 
+#[path = "common/initialize.rs"]
+mod initialize;
+
 const T0: i64 = 1_800_000_000;
 
 /// Sends one instruction; `signers[0]` pays. True on success; prints logs on failure.
@@ -58,8 +61,10 @@ fn setup() -> (LiteSVM, Keypair, Keypair) {
     let global_config = pda(&[GLOBAL_CONFIG_SEED]);
     let whitelist = pda(&[WRITER_WHITELIST_SEED]);
     let a = admin.pubkey();
-    assert!(send(&mut svm, &[&admin], ix(trusttrail::instruction::Initialize {},
-        trusttrail::accounts::Initialize { authority: a, global_config, system_program: system_program::ID })));
+    
+    initialize::set_upgrade_authority(&mut svm, &a);
+    assert!(send(&mut svm, &[&admin], initialize::initialize_ix(&a)));
+    
     assert!(send(&mut svm, &[&admin], ix(trusttrail::instruction::InitWriterWhitelist {},
         trusttrail::accounts::InitWriterWhitelist { authority: a, global_config, whitelist, system_program: system_program::ID })));
     assert!(send(&mut svm, &[&admin], ix(trusttrail::instruction::AddWriter { writer: backend.pubkey() },

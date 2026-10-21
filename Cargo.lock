@@ -1981,6 +1981,7 @@ version = "0.1.0"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
+ "bincode",
  "litesvm",
  "litesvm-token",
  "solana-account",
@@ -4238,6 +4239,7 @@ name = "trusttrail"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
+ "bincode",
  "litesvm",
  "solana-account",
  "solana-keypair",

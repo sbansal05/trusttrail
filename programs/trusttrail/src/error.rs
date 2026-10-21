@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 
 #[error_code]
 pub enum ErrorCode {
-    #[msg("Only the counter authority can update this counter")]
+    #[msg("Only the program's upgrade authority can call initialize")]
     Unauthorized,
     /// Unused, kept so later error codes don't shift.
     #[msg("Counter overflow")]

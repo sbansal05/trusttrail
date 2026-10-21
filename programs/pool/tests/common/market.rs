@@ -94,14 +94,11 @@ fn enable_trusttrail(env: &mut Env) {
 
     let admin = env.admin.insecure_clone();
     let global_config = tt_pda(&[GLOBAL_CONFIG_SEED]);
+    
     let whitelist = tt_pda(&[WRITER_WHITELIST_SEED]);
+    tt_initialize::set_upgrade_authority(&mut env.svm, &admin.pubkey());
     let ixs = [
-        Instruction::new_with_bytes(
-            trusttrail::ID,
-            &trusttrail::instruction::Initialize {}.data(),
-            trusttrail::accounts::Initialize { authority: admin.pubkey(), global_config, system_program: system_program::ID }
-                .to_account_metas(None),
-        ),
+        tt_initialize::initialize_ix(&admin.pubkey()),
         Instruction::new_with_bytes(
             trusttrail::ID,
             &trusttrail::instruction::InitWriterWhitelist {}.data(),

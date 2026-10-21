@@ -10,7 +10,8 @@ use {
     solana_signer::Signer,
     solana_transaction::versioned::VersionedTransaction,
 };
-
+#[path = "common/initialize.rs"]
+mod initialize;
 
 fn setup() -> (LiteSVM, Keypair, Pubkey) {
     let program_id = trusttrail::id();
@@ -23,17 +24,8 @@ fn setup() -> (LiteSVM, Keypair, Pubkey) {
     svm.add_program(program_id, bytes).unwrap();
     svm.airdrop(&admin.pubkey(), 1_000_000_000).unwrap();
 
-    let init_ix = Instruction::new_with_bytes(
-        program_id,
-        &trusttrail::instruction::Initialize {}.data(),
-        trusttrail::accounts::Initialize {
-            authority: admin.pubkey(),
-            global_config,
-            system_program: system_program::ID,
-        }
-        .to_account_metas(None),
-    );
-    assert!(send(&mut svm, &admin, init_ix));
+    initialize::set_upgrade_authority(&mut svm, &admin.pubkey());
+    assert!(send(&mut svm, &admin, initialize::initialize_ix(&admin.pubkey())));
     (svm, admin, global_config)
 }
 
