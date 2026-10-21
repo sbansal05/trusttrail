@@ -36,7 +36,6 @@ pub fn handle_set_imported_score(
 
     require!(rep.import_date == 0 || now - rep.import_date >= IMPORT_COOLDOWN_SECS, ErrorCode::ImportTooSoon);
 
-    let now = Clock::get()?.unix_timestamp;
     rep.imported_score = score;
     rep.import_date = now;
     

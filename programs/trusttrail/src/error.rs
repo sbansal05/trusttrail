@@ -4,7 +4,8 @@ use anchor_lang::prelude::*;
 pub enum ErrorCode {
     #[msg("Only the counter authority can update this counter")]
     Unauthorized,
-    #[msg("Counter has reached the maximum value")]
+    /// Unused, kept so later error codes don't shift.
+    #[msg("Counter overflow")]
     CounterOverflow,
     #[msg("The white_writer list is full")]
     WriterWhiteListOverflow,
@@ -16,6 +17,7 @@ pub enum ErrorCode {
     InvalidOutcome,
     #[msg("Imported score must be between 0 and 1000")]
     InvalidImportedScore,
+    /// Unused, kept so later error codes don't shift.
     #[msg("History was already imported for this wallet")]
     AlreadyImported,
     #[msg("History can be imported again only 15 days after the last import")]
