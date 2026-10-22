@@ -278,6 +278,13 @@ export type Trusttrail = {
           }
         },
         {
+          "name": "program",
+          "address": "BtgvVKaXQMJsRUdZ8ahuBftnwDpYtass15TqTwsJJA9s"
+        },
+        {
+          "name": "programData"
+        },
+        {
           "name": "systemProgram",
           "address": "11111111111111111111111111111111"
         }
@@ -611,97 +618,6 @@ export type Trusttrail = {
           "type": "u64"
         }
       ]
-    },
-    {
-      "name": "updateScore",
-      "discriminator": [
-        188,
-        226,
-        238,
-        41,
-        14,
-        241,
-        105,
-        215
-      ],
-      "accounts": [
-        {
-          "name": "globalConfig",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  103,
-                  108,
-                  111,
-                  98,
-                  97,
-                  108,
-                  45,
-                  99,
-                  111,
-                  110,
-                  102,
-                  105,
-                  103
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "userReputation",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  116,
-                  114,
-                  117,
-                  115,
-                  116,
-                  45,
-                  118,
-                  49
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "user"
-              }
-            ]
-          }
-        },
-        {
-          "name": "user"
-        },
-        {
-          "name": "authority",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "systemProgram",
-          "address": "11111111111111111111111111111111"
-        }
-      ],
-      "args": [
-        {
-          "name": "newScore",
-          "type": "u16"
-        },
-        {
-          "name": "mask",
-          "type": "u64"
-        },
-        {
-          "name": "newFlags",
-          "type": "u8"
-        }
-      ]
     }
   ],
   "accounts": [
@@ -716,19 +632,6 @@ export type Trusttrail = {
         252,
         176,
         217
-      ]
-    },
-    {
-      "name": "userReputation",
-      "discriminator": [
-        86,
-        95,
-        94,
-        218,
-        215,
-        219,
-        207,
-        37
       ]
     },
     {
@@ -762,12 +665,12 @@ export type Trusttrail = {
     {
       "code": 6000,
       "name": "unauthorized",
-      "msg": "Only the counter authority can update this counter"
+      "msg": "Only the program's upgrade authority can call initialize"
     },
     {
       "code": 6001,
       "name": "counterOverflow",
-      "msg": "Counter has reached the maximum value"
+      "msg": "Counter overflow"
     },
     {
       "code": 6002,
@@ -819,34 +722,6 @@ export type Trusttrail = {
           {
             "name": "authority",
             "type": "pubkey"
-          }
-        ]
-      }
-    },
-    {
-      "name": "userReputation",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "score",
-            "type": "u16"
-          },
-          {
-            "name": "lastUpdate",
-            "type": "i64"
-          },
-          {
-            "name": "claimsBitmask",
-            "type": "u64"
-          },
-          {
-            "name": "flags",
-            "type": "u8"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
           }
         ]
       }
@@ -965,11 +840,6 @@ export type Trusttrail = {
       "value": "[103, 108, 111, 98, 97, 108, 45, 99, 111, 110, 102, 105, 103]"
     },
     {
-      "name": "helloWorldLamports",
-      "type": "u64",
-      "value": "1"
-    },
-    {
       "name": "sasSignerSeed",
       "docs": [
         "Seed for our PDA [\"sas-signer\"], the only authorized signer on our credential.",
@@ -977,11 +847,6 @@ export type Trusttrail = {
       ],
       "type": "bytes",
       "value": "[115, 97, 115, 45, 115, 105, 103, 110, 101, 114]"
-    },
-    {
-      "name": "userReputationSeed",
-      "type": "bytes",
-      "value": "[116, 114, 117, 115, 116, 45, 118, 49]"
     },
     {
       "name": "userReputationV2Seed",
