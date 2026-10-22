@@ -33,7 +33,7 @@ What TrustTrail protects, what it trusts, and where its limits are today. TrustT
 | Price sources for imports | Binance and Birdeye prices at each loan's peak | A wrong price changes a loan's weight | Price, source, time and gap are stored with every loan |
 | Pyth | Collateral prices | A wrong price could open an undercollateralized loan or allow an unfair liquidation | Verified updates only, 60 s max age, low end of the confidence range |
 | Admin key | Whitelist and collateral list | Could add a dishonest writer or a bad collateral | Not stored on the backend |
-| Program upgrade authority | Program code | Could deploy different code | Devnet only; upgrades are public on the explorer |
+| Program upgrade authority | Program code, and picking the admin (only it can call `initialize`) | Could deploy different code | Devnet only; upgrades are public on the explorer |
 
 ## Known limits
 
@@ -44,7 +44,6 @@ What TrustTrail protects, what it trusts, and where its limits are today. TrustT
 - **Some import prices assume 1 USDT = $1.**
 - **`liquidated_loans` counts liquidations and defaults together.** The score itself treats them differently (2× and 3× penalties); only this counter merges them.
 - **The cached score in the account can lag** behind the live one (it can only be stricter). The pool always recomputes; other readers should do the same if they need the exact value ([Lender Integration](lender-integration.md#cached-or-live)).
-- **`initialize` makes its first caller the admin.** This was done once at deploy; a fresh deploy must run it right away.
 - **Free Render instance.** The backend sleeps after 15 minutes idle; the first request can take about a minute. The programs and Northwind's read path do not depend on it.
 
 ## Keys and secrets

@@ -17,20 +17,19 @@ Both programs are Anchor 1.1 programs on Solana devnet. Amounts are in base unit
 | Score account (UserReputationV2) | `["trust-v2", wallet]` |
 | Writer whitelist | `["writer_whitelist"]` |
 | SAS signer | `["sas-signer"]` |
-| v1 score (legacy) | `["trust-v1", wallet]` |
 
 ### Instructions
 
 | Instruction | Arguments | Signers | What it does |
 | --- | --- | --- | --- |
-| `initialize` | | authority | Creates GlobalConfig; the signer becomes the admin. |
+| `initialize` | | upgrade authority | Creates GlobalConfig; the signer becomes the admin. Also takes the `program` and its `program_data` account, and fails with `Unauthorized` unless the signer is the program's upgrade authority. |
 | `init_score_v2` | | payer | Creates the score account for `wallet` (anyone may pay the rent). Tier starts at Unproven. |
 | `init_writer_whitelist` | | admin | Creates the empty whitelist. |
 | `add_writer` | `writer: Pubkey` | admin | Adds a writer. At most 10; no duplicates. |
 | `remove_writer` | `writer: Pubkey` | admin | Removes a writer, for example a leaked key. |
 | `record_event` | `principal_usdc: u64, opened_at: i64, due_at: i64, outcome: u8, loan: Pubkey, interest_paid_usdc: u64, collateral_ratio_bps: u16, tier_at_open: u8` | writer, payer | Scores one closed loan (closed now) and writes its SAS attestation with `loan` as the nonce. `due_at = 0` means no due date. |
 | `set_imported_score` | `score: u16, meaningful_on_time: u16, meaningful_weight_bps: u64` | writer, wallet | Sets the imported score (0–1000) and adds the meaningful counts. Once every 15 days per wallet. |
-| `update_score` | `new_score: u16, mask: u64, new_flags: u8` | admin | v1 only. Writes the legacy v1 account; nothing in the current app reads it. |
+
 
 `record_event` outcomes: `0` on time, `1` late, `2` liquidated, `3` defaulted.
 
@@ -95,7 +94,7 @@ Attestations never expire (expiry 0).
 
 | Code | Name | When |
 | --- | --- | --- |
-| 6000 | `Unauthorized` | unused (admin checks fail with Anchor's own `has_one` / `require_keys_eq` errors) |
+| 6000 | `Unauthorized` | `initialize` signed by anyone but the program's upgrade authority |
 | 6001 | `CounterOverflow` | unused |
 | 6002 | `WriterWhiteListOverflow` | an 11th writer |
 | 6003 | `NameAlreadyInWhiteWriterList` | adding a writer twice |
