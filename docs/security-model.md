@@ -24,8 +24,8 @@ What TrustTrail protects, what it trusts, and where its limits are today. TrustT
 - **One attestation per loan.** The attestation address is derived from the Loan account, so the same loan cannot be recorded twice.
 - **No backdating.** The close time is the on-chain clock.
 - **An import needs the wallet's consent.** `set_imported_score` requires the wallet's own signature next to the writer's, and only once every 15 days.
-- **Bad native history cannot hide behind an import.** The native share of the score grows with every native loan, good or bad ([blend](scoring-model.md#4-blending-with-imported-history)).
-- **Farming is expensive.** Loans of $100 or less carry no weight, weight grows only with the log of the principal, a loan counts in full only after 24 hours, and same-transaction loans are dropped from imports. Each loan that counts costs a day of interest on real collateral.
+- **Bad native history cannot hide behind an import.** The native share of the score grows with every meaningful native loan and with every liquidation or default ([blend](scoring-model.md#4-blending-with-imported-history)).
+- **Farming is expensive.** Loans of $100 or less carry no weight, weight grows only with the log of the principal, a loan counts in full only after 24 hours (and raises the native share only then), and same-transaction loans are dropped from imports. Each loan that counts costs a day of interest on real collateral.
 
 ## What it trusts
 
@@ -35,14 +35,14 @@ What TrustTrail protects, what it trusts, and where its limits are today. TrustT
 | Backend import key | Honest import scores | It could import an inflated score for a wallet that co-signs, or call `record_event` itself | Separate key from the admin and the upgrade authority; every import and every loan it counted is public (`GET /import-history`); removable from the whitelist |
 | Price sources for imports | Binance and Birdeye prices at each loan's peak | A wrong price changes a loan's weight | Price, source, time and gap are stored with every loan |
 | Pyth | Collateral prices | A wrong price could open an undercollateralized loan or allow an unfair liquidation | Verified updates only, 60 s max age, low end of the confidence range |
-| Admin key | Whitelist and collateral list | Could add a dishonest writer or a bad collateral | Not stored on the backend |
+| Admin key | Whitelist and collateral list; until 31 Dec 2026, lowering a wallet's stored exposure (`set_exposure`) | Could add a dishonest writer or a bad collateral; could lower a wallet's exposure so its native record counts less | Not stored on the backend; `set_exposure` can only lower exposure and stops working after 31 Dec 2026 |
 | Program upgrade authority | Program code, and picking the admin (only it can call `initialize`) | Could deploy different code | Devnet only; upgrades are public on the explorer |
 | tUSDC mint authority (faucet key) | Minting the devnet test token | Could mint any amount of tUSDC | Devnet test token only; tUSDC has no freeze authority |
 | USDC issuer (Circle), on a future mainnet | Not freezing the pool's vault | Mainnet USDC has a freeze authority that could freeze the vault | Not relevant on devnet (tUSDC) |
 
 ## Known limits
 
-- **Not audited.** Programs are covered by 111 unit and LiteSVM integration tests and run on devnet only.
+- **Not audited.** Programs are covered by 117 unit and LiteSVM integration tests and run on devnet only.
 - **The share price counts tokens sent straight to the vault.** Total assets read the vault balance, so a donation raises the share price. `ZeroShares` stops only a deposit that would mint no shares; on a new, empty pool a first depositor could still take part of the next deposit (1 share, then a donation of half the next deposit: that deposit also gets 1 share). The setup script creates the pool and makes the first 10,000 tUSDC deposit in one transaction, so nobody can get in between. Virtual or dead shares, or internal cash accounting, are left for mainnet.
 - **Imported history is trusted through the backend.** The plan is to verify it on-chain, or drop the import once native records are enough.
 - **Imported liquidations do not block tiers.** They lower the imported score, but only native liquidations set the 90-day Silver/Gold block.

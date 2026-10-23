@@ -29,7 +29,7 @@ Both programs are Anchor 1.1 programs on Solana devnet. Amounts are in base unit
 | `remove_writer` | `writer: Pubkey` | admin | Removes a writer, for example a leaked key. |
 | `record_event` | `principal_usdc: u64, opened_at: i64, due_at: i64, outcome: u8, loan: Pubkey, interest_paid_usdc: u64, collateral_ratio_bps: u16, tier_at_open: u8` | writer, payer | Scores one closed loan (closed now) and writes its SAS attestation with `loan` as the nonce. `due_at = 0` means no due date. |
 | `set_imported_score` | `score: u16, meaningful_on_time: u16, meaningful_weight_bps: u64` | writer, wallet | Sets the imported score (0–1000) and adds the meaningful counts. Once every 15 days per wallet. |
-
+| `set_exposure` | `exposure_bps: u64` | admin | Lowers one wallet's stored exposure (never raises it) and refreshes its cached score and tier. Works only until 31 Dec 2026 23:59:59 UTC; it moves existing wallets to the current exposure rule. |
 
 `record_event` outcomes: `0` on time, `1` late, `2` liquidated, `3` defaulted.
 
@@ -55,7 +55,7 @@ Both programs are Anchor 1.1 programs on Solana devnet. Amounts are in base unit
 | 87 | `s_plus_bps` | u64 | S⁺, uncapped |
 | 95 | `s_minus_bps` | u64 | S⁻ as of `s_minus_at` |
 | 103 | `s_minus_at` | i64 | When S⁻ was last decayed |
-| 111 | `exposure_bps` | u64 | E, Σw of every closed native loan |
+| 111 | `exposure_bps` | u64 | E, Σw of meaningful native loans plus liquidated and defaulted ones |
 | 119 | `meaningful_on_time` | u16 | Native + imported meaningful on-time loans |
 | 121 | `meaningful_weight_bps` | u64 | Σw of those loans |
 | 129 | `bump` | u8 | |
@@ -104,6 +104,8 @@ Attestations never expire (expiry 0).
 | 6007 | `AlreadyImported` | unused |
 | 6008 | `ImportTooSoon` | less than 15 days since the last import |
 | 6009 | `WriterNotFound` | removing a writer that is not listed |
+| 6010 | `ExposureFixClosed` | `set_exposure` after 31 Dec 2026 23:59:59 UTC |
+| 6011 | `ExposureCanOnlyDecrease` | `set_exposure` with a value above the stored exposure |
 
 ## Pool program
 

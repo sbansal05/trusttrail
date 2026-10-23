@@ -68,7 +68,7 @@ A wallet can import its history from other protocols ([History Import](history-i
 score = α · native + (1 − α) · imported
 ```
 
-**E** (exposure) is the sum of w over every closed native loan, good or bad. A wallet with a bad TrustTrail record cannot hide it behind good imported history: the more it borrows here, the more the native part decides.
+**E** (exposure) is the sum of w over the wallet's meaningful native loans (repaid in full, at least $100, open at least 24 hours) plus every liquidated or defaulted one. A wallet with a bad TrustTrail record cannot hide it behind good imported history: every bad outcome raises E, so the native part decides more. A loan repaid within minutes adds nothing to E, so quick loans cannot raise α. E recorded under the earlier rule, which counted every closed loan, was recomputed from each wallet's attestations.
 
 ## 5. Tiers
 
