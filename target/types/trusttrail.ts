@@ -530,6 +530,85 @@ export type Trusttrail = {
       ]
     },
     {
+      "name": "setExposure",
+      "discriminator": [
+        12,
+        80,
+        35,
+        176,
+        239,
+        145,
+        231,
+        47
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "globalConfig"
+          ]
+        },
+        {
+          "name": "globalConfig",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "reputation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  117,
+                  115,
+                  116,
+                  45,
+                  118,
+                  50
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "reputation.wallet",
+                "account": "userReputationV2"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "exposureBps",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "setImportedScore",
       "discriminator": [
         33,
@@ -711,6 +790,16 @@ export type Trusttrail = {
       "code": 6009,
       "name": "writerNotFound",
       "msg": "This writer is not on the whitelist"
+    },
+    {
+      "code": 6010,
+      "name": "exposureFixClosed",
+      "msg": "The exposure fix closed on 31 Dec 2026"
+    },
+    {
+      "code": 6011,
+      "name": "exposureCanOnlyDecrease",
+      "msg": "Exposure can only be lowered"
     }
   ],
   "types": [

@@ -524,6 +524,85 @@
       ]
     },
     {
+      "name": "set_exposure",
+      "discriminator": [
+        12,
+        80,
+        35,
+        176,
+        239,
+        145,
+        231,
+        47
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "global_config"
+          ]
+        },
+        {
+          "name": "global_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  45,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "reputation",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  117,
+                  115,
+                  116,
+                  45,
+                  118,
+                  50
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "reputation.wallet",
+                "account": "UserReputationV2"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "exposure_bps",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "set_imported_score",
       "discriminator": [
         33,
@@ -705,6 +784,16 @@
       "code": 6009,
       "name": "WriterNotFound",
       "msg": "This writer is not on the whitelist"
+    },
+    {
+      "code": 6010,
+      "name": "ExposureFixClosed",
+      "msg": "The exposure fix closed on 31 Dec 2026"
+    },
+    {
+      "code": 6011,
+      "name": "ExposureCanOnlyDecrease",
+      "msg": "Exposure can only be lowered"
     }
   ],
   "types": [
