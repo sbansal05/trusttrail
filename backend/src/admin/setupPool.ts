@@ -1,4 +1,4 @@
-//! One-time devnet setup of the pool: tUSDC mint, init_pool, the two collaterals, the starting liquidity.
+//! One-time devnet setup of the pool: tUSDC mint, init_pool with the starting liquidity, the two collaterals.
 
 try {
     process.loadEnvFile();
@@ -38,6 +38,18 @@ async function send(connection: Connection, what: string, ixs: TransactionInstru
     console.log(`${what}: ${sig}`);
 }
 
+/** The admin's first deposit: tUSDC minted by the faucet key straight into it. Admin and faucet both sign. */
+function startingLiquidityIxs(admin: PublicKey, faucet: PublicKey, usdc: PublicKey): TransactionInstruction[] {
+    const adminUsdc = getAssociatedTokenAddressSync(usdc, admin);
+    const adminLp = getAssociatedTokenAddressSync(lpMintPda(), admin);
+    return [
+        createAssociatedTokenAccountIdempotentInstruction(admin, adminUsdc, admin, usdc),
+        createAssociatedTokenAccountIdempotentInstruction(admin, adminLp, admin, lpMintPda()),
+        createMintToInstruction(usdc, adminUsdc, faucet, STARTING_LIQUIDITY),
+        depositIx(admin, adminUsdc, adminLp, STARTING_LIQUIDITY),
+    ];
+}
+
 async function main() {
     const connection = new Connection(process.env.SOLANA_RPC_URL || "https://api.devnet.solana.com", "confirmed");
     const admin = keypairFromFile(join(homedir(), ".config/solana/id.json"));
@@ -58,10 +70,13 @@ async function main() {
     const program = await connection.getAccountInfo(POOL_PROGRAM_ID);
     if (!program?.executable) throw new Error(`pool program ${POOL_PROGRAM_ID.toBase58()} is not deployed on this cluster`);
 
-    // 3. init_pool
+    // 3. init_pool and the first deposit in one transaction, so nobody can deposit or donate in between
     const pool = await connection.getAccountInfo(poolPda());
     if (!pool) {
-        await send(connection, "init_pool", [initPoolIx(admin.publicKey, usdc)], [admin]);
+        await send(
+            connection, "init_pool + deposit 10,000 tUSDC",
+            [initPoolIx(admin.publicKey, usdc), ...startingLiquidityIxs(admin.publicKey, faucet.publicKey, usdc)], [admin, faucet],
+        );
     } else {
         // PoolConfig: 8 discriminator, authority 32, usdc_mint 32
         const poolUsdc = new PublicKey(pool.data.subarray(40, 72));
@@ -82,19 +97,12 @@ async function main() {
         }
     }
 
-    // 5. Starting liquidity, only while the pool has no lender yet
+    // 5. A pool that exists without a lender (made before the first deposit joined init_pool's transaction): deposit now
     const lp = await getMint(connection, lpMintPda());
     if (lp.supply > 0n) {
         console.log("liquidity: pool already has lenders");
     } else {
-        const adminUsdc = getAssociatedTokenAddressSync(usdc, admin.publicKey);
-        const adminLp = getAssociatedTokenAddressSync(lpMintPda(), admin.publicKey);
-        await send(connection, "mint and deposit 10,000 tUSDC", [
-            createAssociatedTokenAccountIdempotentInstruction(admin.publicKey, adminUsdc, admin.publicKey, usdc),
-            createAssociatedTokenAccountIdempotentInstruction(admin.publicKey, adminLp, admin.publicKey, lpMintPda()),
-            createMintToInstruction(usdc, adminUsdc, faucet.publicKey, STARTING_LIQUIDITY),
-            depositIx(admin.publicKey, adminUsdc, adminLp, STARTING_LIQUIDITY),
-        ], [admin, faucet]);
+        await send(connection, "deposit 10,000 tUSDC", startingLiquidityIxs(admin.publicKey, faucet.publicKey, usdc), [admin, faucet]);
     }
     const vault = await getAccount(connection, vaultPda());
     console.log(`vault: ${Number(vault.amount) / 10 ** TUSDC_DECIMALS} tUSDC`);
