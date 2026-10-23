@@ -26,7 +26,7 @@ pub struct UserReputationV2 {
     pub s_plus_bps: u64,            // Σc over closed, non-liquidated loans (uncapped)
     pub s_minus_bps: u64,           // penalty total, decayed as of s_minus_at
     pub s_minus_at: i64,            // when s_minus_bps was last decayed
-    pub exposure_bps: u64,          // E: Σw over all closed loans ≥ $100
+    pub exposure_bps: u64,          // E: Σw over meaningful loans
     pub meaningful_on_time: u16,    // count for the 3 / 8 gates
     pub meaningful_weight_bps: u64, // Σw for the 3.0 / 8.0 gates
     pub bump: u8,

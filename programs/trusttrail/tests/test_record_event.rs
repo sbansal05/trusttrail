@@ -207,6 +207,27 @@ fn on_time_median_loan_updates_every_total() {
 }
 
 #[test]
+fn only_meaningful_loans_and_penalties_raise_exposure() {
+    let (mut svm, _admin, writer, wallet) = setup();
+    let w = trusttrail::scoring::principal_weight_bps(250 * USDC_UNIT);
+
+    set_clock(&mut svm, T0 + 600);
+    let ix = record_ix(writer.pubkey(), wallet, Pubkey::new_unique(), 250 * USDC_UNIT, T0, T0 + 30 * DAY, OUTCOME_ON_TIME);
+    assert!(send(&mut svm, &writer, ix));
+    assert_eq!(read_rep(&svm, wallet).exposure_bps, 0, "repaid after 10 minutes");
+
+    set_clock(&mut svm, T0 + 2 * DAY);
+    let ix = record_ix(writer.pubkey(), wallet, Pubkey::new_unique(), 250 * USDC_UNIT, T0 + DAY, T0 + 31 * DAY, OUTCOME_ON_TIME);
+    assert!(send(&mut svm, &writer, ix));
+    assert_eq!(read_rep(&svm, wallet).exposure_bps, w, "repaid after a day");
+
+    set_clock(&mut svm, T0 + 2 * DAY + 600);
+    let ix = record_ix(writer.pubkey(), wallet, Pubkey::new_unique(), 250 * USDC_UNIT, T0 + 2 * DAY, T0 + 32 * DAY, OUTCOME_LIQUIDATED);
+    assert!(send(&mut svm, &writer, ix));
+    assert_eq!(read_rep(&svm, wallet).exposure_bps, 2 * w, "liquidated after 10 minutes");
+}
+
+#[test]
 fn eight_median_loans_reach_gold() {
     let (mut svm, _admin, writer, wallet) = setup();
     for i in 0..8 {

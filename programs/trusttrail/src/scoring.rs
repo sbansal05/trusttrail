@@ -62,6 +62,18 @@ pub fn loan_contribution_bps(principal_usdc: u64, opened_at: i64, closed_at: i64
         _ => (0, 0),
     }
 }
+
+/// What one closed native loan adds to E (exposure): its full w if it is meaningful
+/// (repaid in full, at least $100, open at least 24 h) or was liquidated or defaulted, else 0.
+/// A loan repaid within minutes adds nothing, so it cannot raise α without the 24 h a
+/// meaningful loan needs; a bad outcome always counts, so a bad record cannot hide.
+pub fn exposure_weight_bps(principal_usdc: u64, opened_at: i64, closed_at: i64, outcome: u8) -> u64 {
+    let counts = meaningful_loan(principal_usdc, opened_at, closed_at, outcome)
+        || outcome == OUTCOME_LIQUIDATED
+        || outcome == OUTCOME_DEFAULTED;
+    if counts { principal_weight_bps(principal_usdc) } else { 0 }
+}
+
 /// Due-date weighting (mentor decision, 2 : 1): a loan with a due date proves on-time
 /// discipline and counts 1.0; a loan without one (floating-rate DeFi) counts 0.5.
 /// `due_at` = 0 means no due date, as in the SAS schema.
@@ -105,8 +117,8 @@ pub fn native_component(s_plus_bps: u64, s_minus_now_bps: u64) -> u16 {
 }
 
 /// Final score: α · native + (1 − α) · imported, with α = min(1, E ÷ 8.0).
-/// E is Σw over all closed native loans of at least $100, good or bad, so a bad
-/// TrustTrail history can't hide behind imported history. α can reach 1.
+/// E is Σw over meaningful native loans plus liquidated and defaulted ones (`exposure_weight_bps`),
+/// so a bad TrustTrail history can't hide behind imported history. α can reach 1.
 pub fn blend(native: u16, imported: u16, exposure_bps: u64) -> u16 {
     let alpha = exposure_bps.min(FULL_WEIGHT_BPS) * BPS / FULL_WEIGHT_BPS;
     let mixed = native as u64 * alpha + imported as u64 * (BPS - alpha);
@@ -313,5 +325,19 @@ mod tests {
             prev = v;
             t += 7_919;
         }
+    }
+    
+    #[test]
+    fn n_exposure_counts_meaningful_loans_and_penalties() {
+        let w = principal_weight_bps(usd(250));
+        let day = T0 + 24 * H;
+        assert_eq!(exposure_weight_bps(usd(250), T0, day, OUTCOME_ON_TIME), w);
+        assert_eq!(exposure_weight_bps(usd(250), T0, day, OUTCOME_LATE), w);
+        assert_eq!(exposure_weight_bps(usd(250), T0, day - 1, OUTCOME_ON_TIME), 0, "one second short of 24 h");
+        assert_eq!(exposure_weight_bps(usd(250), T0, T0 + 600, OUTCOME_ON_TIME), 0, "repaid after 10 minutes");
+        assert_eq!(exposure_weight_bps(usd(250), T0, T0 + 600, OUTCOME_LIQUIDATED), w);
+        assert_eq!(exposure_weight_bps(usd(250), T0, T0 + 600, OUTCOME_DEFAULTED), w);
+        assert_eq!(exposure_weight_bps(usd(100), T0, day, OUTCOME_ON_TIME), 0, "w($100) is 0");
+        assert_eq!(exposure_weight_bps(usd(250), T0, day, 9), 0, "unknown outcome");
     }
 }

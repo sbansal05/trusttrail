@@ -79,8 +79,7 @@ pub fn handle_record_event(
     rep.s_minus_bps = rep.s_minus_bps.saturating_add(minus);
 
     let w = principal_weight_bps(principal_usdc);
-    rep.exposure_bps = rep.exposure_bps.saturating_add(w);
-
+    rep.exposure_bps = rep.exposure_bps.saturating_add(exposure_weight_bps(principal_usdc, opened_at, now, outcome));
     if outcome == OUTCOME_ON_TIME && meaningful_loan(principal_usdc, opened_at, now, outcome) {
         rep.meaningful_on_time = rep.meaningful_on_time.saturating_add(1);
         rep.meaningful_weight_bps = rep.meaningful_weight_bps.saturating_add(w);
