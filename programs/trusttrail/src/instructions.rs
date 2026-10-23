@@ -12,3 +12,7 @@ pub use record_event::*;
 
 pub mod set_imported_score;
 pub use set_imported_score::*;
+
+
+pub mod set_exposure;
+pub use set_exposure::*;

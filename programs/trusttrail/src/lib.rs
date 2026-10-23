@@ -46,6 +46,11 @@ pub mod trusttrail {
         crate::instructions::handle_set_imported_score(ctx, score, meaningful_on_time, meaningful_weight_bps)
     }
     
+    
+    pub fn set_exposure(ctx: Context<SetExposure>, exposure_bps: u64) -> Result<()> {
+        crate::instructions::handle_set_exposure(ctx, exposure_bps)
+    }
+    
     pub fn record_event(
         ctx: Context<RecordEvent>,
         principal_usdc: u64,

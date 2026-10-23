@@ -24,4 +24,8 @@ pub enum ErrorCode {
     ImportTooSoon,
     #[msg("This writer is not on the whitelist")]
     WriterNotFound,
+    #[msg("The exposure fix closed on 31 Dec 2026")]
+    ExposureFixClosed,
+    #[msg("Exposure can only be lowered")]
+    ExposureCanOnlyDecrease,
 }

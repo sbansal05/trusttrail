@@ -96,3 +96,7 @@ pub const SILVER_MIN_WEIGHT_BPS: u64 = 30_000;
 pub const GOLD_MIN_WEIGHT_BPS: u64 = 80_000;   
 /// A wallet may import its outside history again 15 days after the last import.
 pub const IMPORT_COOLDOWN_SECS: i64 = 15 * 86_400;
+
+/// `set_exposure` works until 31 Dec 2026 23:59:59 UTC and always fails after it, so the
+/// admin can lower stored exposure only while existing wallets move to the current rule.
+pub const EXPOSURE_FIX_DEADLINE: i64 = 1_798_761_599;
