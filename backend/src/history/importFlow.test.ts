@@ -10,7 +10,7 @@ import bs58 from "bs58";
 import { newDb } from "pg-mem";
 import type { Pool } from "pg";
 import { Keypair, PublicKey, SYSVAR_CLOCK_PUBKEY, SystemProgram, Transaction } from "@solana/web3.js";
-import { GLOBAL_CONFIG, PROGRAM_DATA, addWriterIx, initWhitelistIx, initializeIx } from "../admin/trusttrailIx";
+import { GLOBAL_CONFIG, PROGRAM_DATA, addWriterIx, initWhitelistIx, initializeIx, setExposureIx } from "../admin/trusttrailIx";
 import { importMessage, verifyImportRequest } from "./auth";
 import { TRUSTTRAIL_PROGRAM_ID, reputationPda, whitelistPda } from "./chain";
 import { discriminator, setImportedScoreIx } from "./importTx";
@@ -120,11 +120,14 @@ test("discriminators and account order match the program's IDL", () => {
 
     // Admin instructions built by hand in admin/trusttrailIx.ts: same accounts, order and flags as the IDL.
     const admin = Keypair.generate().publicKey;
-    const byName: Record<string, PublicKey> = {
+        const byName: Record<string, PublicKey> = {
         authority: admin, global_config: GLOBAL_CONFIG, program: TRUSTTRAIL_PROGRAM_ID, program_data: PROGRAM_DATA,
-        whitelist: whitelistPda(), system_program: SystemProgram.programId,
+        whitelist: whitelistPda(), system_program: SystemProgram.programId, reputation: reputationPda(walletKey.publicKey),
     };
-    const built = { initialize: initializeIx(admin), init_writer_whitelist: initWhitelistIx(admin), add_writer: addWriterIx(admin, writer.publicKey) };
+    const built = {
+        initialize: initializeIx(admin), init_writer_whitelist: initWhitelistIx(admin), add_writer: addWriterIx(admin, writer.publicKey),
+        set_exposure: setExposureIx(admin, walletKey.publicKey, 1n),
+    };
     for (const [name, builtIx] of Object.entries(built)) {
         const accounts: { name: string; signer?: boolean; writable?: boolean }[] = ix(name).accounts;
         assert.deepEqual([...builtIx.data.subarray(0, 8)], ix(name).discriminator, name);

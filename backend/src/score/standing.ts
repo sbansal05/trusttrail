@@ -56,7 +56,7 @@ export type Factors = {
     imported: number;
     importDate: number;               // 0 = never imported
     blend: {
-        exposureBps: string;          // Σ weight of closed native loans of $100+
+        exposureBps: string;          // Σ weight of meaningful native loans plus liquidated and defaulted ones
         fullWeightBps: string;        // exposure at which the native part counts 100%
         nativeShareBps: string;
         importedShareBps: string;

@@ -2,7 +2,7 @@
 //! account structs; the IDL test in history/importFlow.test.ts checks it.
 
 import { PublicKey, SystemProgram, TransactionInstruction } from "@solana/web3.js";
-import { TRUSTTRAIL_PROGRAM_ID, whitelistPda } from "../history/chain";
+import { TRUSTTRAIL_PROGRAM_ID, reputationPda, whitelistPda } from "../history/chain";
 import { discriminator } from "../history/importTx";
 
 const BPF_LOADER_UPGRADEABLE = new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111");
@@ -48,5 +48,22 @@ export function addWriterIx(admin: PublicKey, writer: PublicKey): TransactionIns
             { pubkey: whitelistPda(), isSigner: false, isWritable: true },
         ],
         data: Buffer.concat([discriminator("add_writer"), writer.toBuffer()]),
+    });
+}
+
+
+/** Lowers one wallet's stored exposure to `exposureBps` (admin only, until the program's deadline). */
+export function setExposureIx(admin: PublicKey, wallet: PublicKey, exposureBps: bigint): TransactionInstruction {
+    const data = Buffer.alloc(16);
+    discriminator("set_exposure").copy(data, 0);
+    data.writeBigUInt64LE(exposureBps, 8);
+    return new TransactionInstruction({
+        programId: TRUSTTRAIL_PROGRAM_ID,
+        keys: [
+            { pubkey: admin, isSigner: true, isWritable: false },
+            { pubkey: GLOBAL_CONFIG, isSigner: false, isWritable: false },
+            { pubkey: reputationPda(wallet), isSigner: false, isWritable: true },
+        ],
+        data,
     });
 }

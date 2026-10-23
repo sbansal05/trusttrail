@@ -89,6 +89,13 @@ export function meaningfulLoan(principal: bigint, openedAt: number, closedAt: nu
     return repaidInFull && principal >= MIN_PRINCIPAL && closedAt - openedAt >= MIN_HOLD_SECS;
 }
 
+
+/** What one closed native loan adds to exposure E: full w if meaningful, liquidated or defaulted, else 0. Same as Rust `exposure_weight_bps`. */
+export function exposureWeightBps(principal: bigint, openedAt: number, closedAt: number, outcome: number): bigint {
+    const counts = meaningfulLoan(principal, openedAt, closedAt, outcome) || outcome === 2 || outcome === 3;
+    return counts ? principalWeightBps(principal) : 0n;
+}
+
 export type ImportSummary = {
     score: bigint;               // 0..1000, written as imported_score
     meaningfulOnTime: number;    // added to meaningful_on_time

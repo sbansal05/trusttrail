@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-    principalWeightBps, durationBps, loanContributionBps, decayBps, nativeComponent, blend, computeTier, USDC,
+    principalWeightBps, durationBps, loanContributionBps, decayBps, nativeComponent, blend, computeTier, exposureWeightBps, USDC,
     TIER_UNPROVEN, TIER_BRONZE, TIER_SILVER, TIER_GOLD,
 } from "./scoring";
 
@@ -69,6 +69,18 @@ test("meaningful: $100+, 24h+, repaid", () => {
     assert.equal(meaningfulLoan(usd(99), T0, T0 + DAY, 0), false);
     assert.equal(meaningfulLoan(usd(500), T0, T0 + DAY - 1, 0), false);
     assert.equal(meaningfulLoan(usd(500), T0, T0 + 10 * DAY, 2), false);
+});
+
+test("exposure: meaningful loans and penalties only (same as Rust n_exposure)", () => {
+    const w = principalWeightBps(usd(250)), day = T0 + 24 * H;
+    assert.equal(exposureWeightBps(usd(250), T0, day, 0), w);
+    assert.equal(exposureWeightBps(usd(250), T0, day, 1), w);
+    assert.equal(exposureWeightBps(usd(250), T0, day - 1, 0), 0n);
+    assert.equal(exposureWeightBps(usd(250), T0, T0 + 600, 0), 0n);
+    assert.equal(exposureWeightBps(usd(250), T0, T0 + 600, 2), w);
+    assert.equal(exposureWeightBps(usd(250), T0, T0 + 600, 3), w);
+    assert.equal(exposureWeightBps(usd(100), T0, day, 0), 0n);
+    assert.equal(exposureWeightBps(usd(250), T0, day, 9), 0n);
 });
 
 test("importSummary: three median Kamino loans", () => {
