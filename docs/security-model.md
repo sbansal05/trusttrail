@@ -9,10 +9,13 @@ What TrustTrail protects, what it trusts, and where its limits are today. TrustT
 - **Every loan is fully collateralized.** A loan opens only if the collateral is worth at least 120–150% of it, valued at the low end of Pyth's confidence range.
 - **Prices must be fresh and verified.** Only fully verified Pyth `PriceUpdateV2` accounts, owned by the Pyth receiver, for the configured feed, at most 60 seconds old.
 - **Liquidation is open to anyone** once collateral falls below its threshold (110% SOL, 105% tUSDC) or a loan is 3 days past due, with a 5% (SOL) or 2% (tUSDC) bonus as the incentive.
+- **A borrower cannot block their own liquidation.** Any collateral left after a liquidation goes to a token account of the borrower's for that mint, and anyone can create one (for example the borrower's associated token account), so closing token accounts does not stop a liquidation.
+- **Only classic SPL Token mints.** Every token account is checked as an SPL Token account, so Token-2022 mints (PYUSD, for example) are refused. This also keeps transfer-fee tokens from breaking the pool's accounting.
 - **Bad debt hits the reserve first.** 10% of all interest is kept as a first-loss reserve; lenders lose only what it cannot cover, and the loss is tracked in `bad_debt`.
 - **Withdrawals stay possible.** New loans stop at 90% utilization.
 - **Rounding favours the pool.** Debt rounds up; shares minted and USDC paid out round down.
 - **Risk parameters are checked.** A collateral's liquidation threshold must leave room for its bonus and sit below every tier's required ratio, so no loan can be liquidatable at open.
+
 
 ### Borrowers' records
 
@@ -34,10 +37,13 @@ What TrustTrail protects, what it trusts, and where its limits are today. TrustT
 | Pyth | Collateral prices | A wrong price could open an undercollateralized loan or allow an unfair liquidation | Verified updates only, 60 s max age, low end of the confidence range |
 | Admin key | Whitelist and collateral list | Could add a dishonest writer or a bad collateral | Not stored on the backend |
 | Program upgrade authority | Program code, and picking the admin (only it can call `initialize`) | Could deploy different code | Devnet only; upgrades are public on the explorer |
+| tUSDC mint authority (faucet key) | Minting the devnet test token | Could mint any amount of tUSDC | Devnet test token only; tUSDC has no freeze authority |
+| USDC issuer (Circle), on a future mainnet | Not freezing the pool's vault | Mainnet USDC has a freeze authority that could freeze the vault | Not relevant on devnet (tUSDC) |
 
 ## Known limits
 
 - **Not audited.** Programs are covered by 111 unit and LiteSVM integration tests and run on devnet only.
+- **The share price counts tokens sent straight to the vault.** Total assets read the vault balance, so a donation raises the share price. `ZeroShares` stops only a deposit that would mint no shares; on a new, empty pool a first depositor could still take part of the next deposit (1 share, then a donation of half the next deposit: that deposit also gets 1 share). The setup script creates the pool and makes the first 10,000 tUSDC deposit in one transaction, so nobody can get in between. Virtual or dead shares, or internal cash accounting, are left for mainnet.
 - **Imported history is trusted through the backend.** The plan is to verify it on-chain, or drop the import once native records are enough.
 - **Imported liquidations do not block tiers.** They lower the imported score, but only native liquidations set the 90-day Silver/Gold block.
 - **Unpriced loans are left out of an import,** including their liquidations.
