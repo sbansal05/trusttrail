@@ -276,6 +276,7 @@ export async function prepareBorrow(deps: PoolDeps, req: BorrowRequest) {
     setup.push(createAssociatedTokenAccountIdempotentInstruction(wallet, usdcAta, wallet, deps.usdcMint));
 
     let borrowerCollateral: PublicKey;
+    const after: TransactionInstruction[] = [];
     if (c.symbol === "SOL") {
         const lamports = BigInt(await deps.connection.getBalance(wallet));
         if (lamports < collateralAmount + SOL_FEE_RESERVE) {
@@ -284,6 +285,10 @@ export async function prepareBorrow(deps: PoolDeps, req: BorrowRequest) {
             });
         }
         borrowerCollateral = getAssociatedTokenAddressSync(WSOL_MINT, wallet);
+        // Closing a wSOL account unwraps all of it, so only an account this transaction creates is closed (rent back now).
+        if (!(await deps.connection.getAccountInfo(borrowerCollateral))) {
+            after.push(createCloseAccountInstruction(borrowerCollateral, wallet, wallet));
+        }
         setup.push(
             createAssociatedTokenAccountIdempotentInstruction(wallet, borrowerCollateral, wallet, WSOL_MINT),
             SystemProgram.transfer({ fromPubkey: wallet, toPubkey: borrowerCollateral, lamports: collateralAmount }),
@@ -317,6 +322,7 @@ export async function prepareBorrow(deps: PoolDeps, req: BorrowRequest) {
             borrower: wallet, loanId: b.nextLoanId, collateralMint: c.mint, priceUpdate,
             borrowerCollateral, borrowerUsdc: usdcAta, amount: req.amount, collateralAmount,
         }),
+        ...after,
     ]);
     return {
         loan: loan.toBase58(),

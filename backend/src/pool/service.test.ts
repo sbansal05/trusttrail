@@ -151,7 +151,7 @@ test("GET /loans: offer capped by the tier and the growth rule, open loan health
     assert.equal(l.state, "late", "a day past due, inside the 3-day grace");
 });
 
-test("borrow against SOL: default collateral = minimum + 5%, score account created, SOL wrapped, then borrow", async () => {
+test("borrow against SOL: default collateral = minimum + 5%, score account created, SOL wrapped, borrow, new wSOL account closed", async () => {
     const me = Keypair.generate().publicKey;
     const { deps, built } = setup();
     const r = await prepareBorrow(deps, { wallet: me.toBase58(), collateral: "SOL", amount: 100n * U });
@@ -159,11 +159,25 @@ test("borrow against SOL: default collateral = minimum + 5%, score account creat
     assert.equal(min, 1_298_476_455n); // $150 at $115.52, rounded up
     assert.equal(BigInt(r.collateralAmount), (min * (10_000n + COLLATERAL_BUFFER_BPS)) / 10_000n);
     const ixs = built[0];
-    assert.equal(ixs.length, 6); // init score, tUSDC account, wSOL account, transfer, sync, borrow
+    assert.equal(ixs.length, 7); // init score, tUSDC account, wSOL account, transfer, sync, borrow, close wSOL account
     assert.ok(ixs[0].programId.equals(TRUSTTRAIL_PROGRAM_ID), "a new wallet gets its score account first");
-    assert.equal(programOf(ixs).at(-1), POOL_PROGRAM_ID.toBase58());
-    assert.deepEqual(borrowArgs(ixs.at(-1)!), [100n * U, BigInt(r.collateralAmount)]);
+    assert.equal(programOf(ixs).at(-2), POOL_PROGRAM_ID.toBase58());
+    assert.deepEqual(borrowArgs(ixs.at(-2)!), [100n * U, BigInt(r.collateralAmount)]);
+    const close = ixs.at(-1)!;
+    assert.ok(close.programId.equals(TOKEN_PROGRAM_ID));
+    assert.equal(close.data[0], 9, "CloseAccount");
+    assert.deepEqual(close.keys.map((k) => k.pubkey), [getAssociatedTokenAddressSync(WSOL_MINT, me), me, me], "rent goes back to the wallet");
     assert.equal(r.loan, loanPda(me, 0n).toBase58());
+});
+
+test("borrow against SOL with a wSOL account the wallet already had: the account is left open", async () => {
+    const me = Keypair.generate().publicKey;
+    const wsol = getAssociatedTokenAddressSync(WSOL_MINT, me);
+    const { deps, built } = setup({ accounts: [[wsol, info(tokenData(3n * 10n ** 9n), TOKEN_PROGRAM_ID)]] });
+    await prepareBorrow(deps, { wallet: me.toBase58(), collateral: "SOL", amount: 100n * U });
+    const ixs = built[0];
+    assert.equal(programOf(ixs).at(-1), POOL_PROGRAM_ID.toBase58(), "borrow is the last instruction");
+    assert.ok(!ixs.some((ix) => ix.programId.equals(TOKEN_PROGRAM_ID) && ix.data[0] === 9), "no CloseAccount: it would unwrap the wallet's own wSOL");
 });
 
 test("borrow is refused below the minimum collateral, above the limit, or without enough SOL", async () => {
