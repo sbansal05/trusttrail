@@ -2,6 +2,7 @@
 //! GET  /import-history/:wallet   public history (add ?all=true for every import, newest first)
 //! POST /import/prepare           { wallet, timestamp, signature }  -> the transaction for the wallet to sign
 //! POST /import/submit            { importId, transaction }         -> the confirmed transaction signature
+//! GET  /import-preview/:wallet   read-only preview of what an import would give (cached, rate limited)
 
 import { Router, type Response } from "express";
 import type { Pool } from "pg";
@@ -9,6 +10,7 @@ import { PublicKey } from "@solana/web3.js";
 import { importHistory } from "./store";
 import { verifyImportRequest } from "./auth";
 import { ImportError, prepareImport, submitImport, type ImportDeps } from "./importService";
+import { previewImport, type PreviewDeps } from "./preview";
 
 export function isWallet(s: unknown): s is string {
     if (typeof s !== "string") return false;
@@ -70,5 +72,20 @@ export function importRouter(deps: ImportDeps, nowSecs: () => number = () => Mat
         }
     });
 
+    return r;
+}
+
+export function importPreviewRouter(deps: PreviewDeps): Router {
+    const r = Router();
+    r.get("/import-preview/:wallet", async (req, res) => {
+        const { wallet } = req.params;
+        // Checked before anything is reserved, so a bad address never counts toward the limits.
+        if (!isWallet(wallet)) return res.status(400).json({ error: "invalid wallet" });
+        try {
+            res.json(await previewImport(deps, wallet, req.ip ?? "unknown"));
+        } catch (err) {
+            fail(res, err, "import preview");
+        }
+    });
     return r;
 }

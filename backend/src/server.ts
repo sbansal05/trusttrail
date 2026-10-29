@@ -8,7 +8,8 @@ import cors from "cors";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import { createPool } from "./history/db";
 import { migrate } from "./history/store";
-import { importHistoryRouter, importRouter } from "./history/routes";
+import { importHistoryRouter, importPreviewRouter, importRouter } from "./history/routes";
+import { migratePreview, previewLimits } from "./history/preview";
 import { liveSources } from "./history/prices";
 import { ADAPTERS, walletHistory } from "./history/adapters";
 import { buildLoans } from "./history/buildLoans";
@@ -25,6 +26,8 @@ function required(name: string): string {
 }
 
 const app = express();
+// Render puts one proxy in front of the app: req.ip is then the caller's IP, used by the preview limits.
+app.set("trust proxy", 1);
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || "http://localhost:5173").split(",");
 app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
@@ -34,15 +37,32 @@ const connection = new Connection(process.env.SOLANA_RPC_URL || "https://api.dev
 // The backend's own writer key: whitelisted in TrustTrail, separate from the admin / upgrade wallet.
 const writer = Keypair.fromSecretKey(new Uint8Array(JSON.parse(required("WRITER_PRIVATE_KEY"))));
 
+const prices = liveSources();
+const checkedProtocols = ADAPTERS.map((a) => a.protocol);
+async function walletLoans(wallet: string) {
+    const { events, capped } = await walletHistory(wallet);
+    return { loans: buildLoans(events), capped };
+}
+
 app.use(importHistoryRouter(pool));
 app.use(
     importRouter({
         pool,
         connection,
         writer,
-        prices: liveSources(),
-        history: async (wallet) => buildLoans((await walletHistory(wallet)).events),
-        checkedProtocols: ADAPTERS.map((a) => a.protocol),
+        prices,
+        history: async (wallet) => (await walletLoans(wallet)).loans,
+        checkedProtocols,
+    }),
+);
+app.use(
+    importPreviewRouter({
+        pool,
+        prices,
+        history: walletLoans,
+        checkedProtocols,
+        limits: previewLimits(),
+        now: () => Math.floor(Date.now() / 1000),
     }),
 );
 app.use(scoreRouter({ pool, connection }));
@@ -65,6 +85,7 @@ app.use(poolRouter({ connection, usdcMint: new PublicKey(required("TUSDC_MINT"))
 const port = Number(process.env.PORT || 3000);
 migrate(pool)
     .then(() => migrateFaucet(pool))
+    .then(() => migratePreview(pool))
     .then(() => app.listen(port, () => console.log(`listening on port ${port}`)))
     .catch((err) => {
         console.error("database migration failed:", err);

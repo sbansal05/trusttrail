@@ -216,6 +216,12 @@ function toPublicLoan(r: Record<string, any>): PublicLoan {
     };
 }
 
+/** The public view of a loan that is not in a table (a preview), built from the columns a saved import would store. */
+export function publicLoan(l: Loan, p: PricedLoan | null): PublicLoan {
+    const values = loanValues("", l, p);
+    return toPublicLoan(Object.fromEntries(LOAN_COLUMNS.map((c, i) => [c, values[i]])));
+}
+
 /** Confirmed imports of a wallet, newest first, each with its loans. `latestOnly` keeps just the newest. */
 export async function importHistory(pool: Pool, wallet: string, latestOnly: boolean): Promise<PublicImport[]> {
     const { rows } = await pool.query(
