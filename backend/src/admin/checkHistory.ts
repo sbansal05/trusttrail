@@ -9,8 +9,9 @@ const OUTCOME = ["on time", "late", "liquidated", "defaulted"];
 async function main() {
     const wallet = process.argv[2];
     if (!wallet) throw new Error("usage: npx tsx src/admin/checkHistory.ts <wallet>");
-    const events = await walletHistory(wallet);
-
+    const { events, capped } = await walletHistory(wallet);
+    if (capped) console.log("history capped: the page limit was reached, older transactions were not read");
+    
     const counts = new Map<string, { borrow: number; repay: number; liquidation: number }>();
     for (const e of events) {
         const c = counts.get(e.protocol) ?? { borrow: 0, repay: 0, liquidation: 0 };

@@ -11,7 +11,7 @@ export const helius = createHelius({
 });
 
 export const MAX_AGE_DAYS = 730;
-const MAX_PAGES = 20;
+export const MAX_PAGES = 20;
 
 export async function getTransaction(walletAddress: string) {
     return await helius.getTransactionsForAddress([
@@ -35,15 +35,35 @@ export type TransactionWithMessage = {
     message: TransactionMessage;
 };
 
-export async function getAllTransactions(walletAddress: string): Promise<TransactionList> {
-    let allTransactions: TransactionList = [];
-    let token: string | null | undefined = undefined;
-    let pages = 0;
-    const cutoffSeconds = Date.now() / 1000;
+export type History<T> = { transactions: T[]; capped: boolean };
+type Page<T> = { data: readonly T[]; paginationToken: string | null };
 
-    do {
-        const response: TransactionsResponse = await helius.getTransactionsForAddress([
-            walletAddress,
+/**
+ * Reads newest-first pages until the history runs out or goes past MAX_AGE_DAYS.
+ * `capped` is true when MAX_PAGES were read and more pages were still left.
+ */
+export async function pageThrough<T extends { blockTime: number | null }>(
+    fetchPage: (token: string | undefined) => Promise<Page<T>>,
+    nowSeconds = Date.now() / 1000,
+): Promise<History<T>> {
+    const transactions: T[] = [];
+    let token: string | undefined = undefined;
+    for (let pages = 0; pages < MAX_PAGES; pages++) {
+        const page = await fetchPage(token);
+        transactions.push(...page.data);
+        const oldest = page.data[page.data.length - 1];
+        const tooOld = oldest?.blockTime != null && (nowSeconds - oldest.blockTime) / 86_400 > MAX_AGE_DAYS;
+        if (page.data.length === 0 || !page.paginationToken || tooOld) return { transactions, capped: false };
+        token = page.paginationToken;
+    }
+    return { transactions, capped: true };
+}
+
+/** An address's history, newest first, and whether MAX_PAGES cut it short. */
+export async function readHistory(address: string): Promise<History<TransactionList[number]>> {
+    return pageThrough((token) =>
+        helius.getTransactionsForAddress([
+            address,
             {
                 limit: 100,
                 transactionDetails: "full",
@@ -51,23 +71,10 @@ export async function getAllTransactions(walletAddress: string): Promise<Transac
                 sortOrder: "desc",
                 paginationToken: token,
             },
-        ]);
+        ]),
+    );
+}
 
-        allTransactions = [...allTransactions, ...response.data];
-        token = response.data.length > 0 ? response.paginationToken : null;
-        pages = pages + 1;
-
-        const oldestTx = response.data[response.data.length - 1];
-        if (oldestTx) {
-            const oldestBlocktime = oldestTx.blockTime;
-            if (oldestBlocktime !== null) {
-                const ageDays = (cutoffSeconds - oldestBlocktime) / 60 / 60 / 24;
-                if (ageDays > MAX_AGE_DAYS) {
-                    token = null;
-                }
-            }
-        }
-    } while (token !== null && token !== undefined && pages < MAX_PAGES);
-
-    return allTransactions;
+export async function getAllTransactions(address: string): Promise<TransactionList> {
+    return (await readHistory(address)).transactions;
 }

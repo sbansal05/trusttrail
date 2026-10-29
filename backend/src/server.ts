@@ -41,7 +41,7 @@ app.use(
         connection,
         writer,
         prices: liveSources(),
-        history: async (wallet) => buildLoans(await walletHistory(wallet)),
+        history: async (wallet) => buildLoans((await walletHistory(wallet)).events),
         checkedProtocols: ADAPTERS.map((a) => a.protocol),
     }),
 );
