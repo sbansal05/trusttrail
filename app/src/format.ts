@@ -43,6 +43,19 @@ export function day(secs: number | null): string {
     return new Date(secs * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
+/** Unix seconds → "Oct 30, 3:15 PM". */
+export function dateTime(secs: number): string {
+    return new Date(secs * 1000).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+/** Unix seconds in the past → "just now", "12 min ago", "3 h ago". */
+export function ago(secs: number, nowSecs = Date.now() / 1000): string {
+    const mins = Math.floor((nowSecs - secs) / 60);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins} min ago`;
+    return `${Math.floor(mins / 60)} h ago`;
+}
+
 
 export function parseUnits(text: string, decimals: number): bigint | null {
     const m = /^(\d*)(?:\.(\d*))?$/.exec(text.trim());

@@ -145,6 +145,22 @@ export async function getLatestImport(wallet: string): Promise<PublicImport | nu
     }
 }
 
+/** What an import would give a wallet, read without writing anything on-chain. Cached for a few hours. */
+export type ImportPreview = {
+    wallet: string;
+    computedAt: number;
+    cached: boolean;
+    checkedProtocols: string[];
+    score: number;
+    meaningfulOnTime: number;
+    meaningfulWeightBps: string;
+    counts: { loans: number; priced: number; unpriced: number; unpricedLiquidations: number; sameTransaction: number };
+    historyCapped: boolean;
+    loans: PublicLoan[];
+};
+
+export const getImportPreview = (wallet: string) => call<ImportPreview>(`/import-preview/${wallet}`);
+
 // ---------- faucet ----------
 
 export const claimFaucet = (wallet: string) =>

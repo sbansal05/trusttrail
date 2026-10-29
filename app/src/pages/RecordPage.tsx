@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { getLatestImport, getScore, type PublicImport, type ScoreView } from "../api";
+import { ApiError, getImportPreview, getLatestImport, getScore, type ImportPreview, type PublicImport, type PublicLoan, type ScoreView } from "../api";
 import { useAsync } from "../useAsync";
 import { explorerTx } from "../config";
-import { OUTCOMES, PROTOCOL_LABELS, day, shortAddress, tierLabel, usd6, isWallet } from "../format";
+import { OUTCOMES, PROTOCOLS, PROTOCOL_LABELS, ago, dateTime, day, shortAddress, tierLabel, usd6, isWallet } from "../format";
 import { OutcomePill } from "../components/OutcomePill";
 import { RecordsTable } from "../components/RecordsTable";
 
@@ -89,53 +89,133 @@ function RecordBody({ score, latestImport }: { score: ScoreView; latestImport: P
                 <h2 id="imp-h" className="tt-title">Imported history</h2>
                 {latestImport ? <ImportedLoans imp={latestImport} /> : <p className="tt-muted">This wallet has not imported loans from other protocols yet.</p>}
             </section>
+
+            <ImportPreviewCard key={score.wallet} wallet={score.wallet} />
         </>
     );
 }
 
+const protocolNames = (protocols: string[]) => protocols.map((p) => PROTOCOL_LABELS[p] ?? p).join(", ");
+
 function ImportedLoans({ imp }: { imp: PublicImport }) {
-    const loans = [...imp.loans].sort((a, b) => b.closedAt - a.closedAt);
     return (
         <>
             <p className="tt-muted">
                 Imported {day(imp.computedAt)} (<a href={explorerTx(imp.txSignature)} target="_blank" rel="noreferrer">transaction</a>),
-                imported score {imp.score}. Checked: {imp.checkedProtocols.map((p) => PROTOCOL_LABELS[p] ?? p).join(", ")}.
+                imported score {imp.score}. Checked: {protocolNames(imp.checkedProtocols)}.
             </p>
-            {loans.length === 0 ? (
-                <p className="tt-muted">No loans found on those protocols.</p>
-            ) : (
-                <div className="tt-table-wrap">
-                    <table className="tt-table">
-                        <thead>
-                            <tr>
-                                <th>Protocol</th>
-                                <th>Opened</th>
-                                <th>Closed</th>
-                                <th>Peak debt</th>
-                                <th>Outcome</th>
-                                <th>Closing tx</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loans.map((l) => (
-                                <tr key={`${l.position}:${l.signatures.open}`}>
-                                    <td>{PROTOCOL_LABELS[l.protocol] ?? l.protocol}</td>
-                                    <td>{day(l.openedAt)}</td>
-                                    <td>{day(l.closedAt)}</td>
-                                    <td className="tt-mono">{l.usdMicro ? usd6(l.usdMicro) : "no price"}</td>
-                                    <td><OutcomePill outcome={l.outcome} /></td>
-                                    <td className="tt-mono">
-                                        <a href={explorerTx(l.signatures.end)} target="_blank" rel="noreferrer">{shortAddress(l.signatures.end)}</a>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+            <LoansTable loans={imp.loans} />
         </>
     );
 }
+
+/** Imported or previewed loans, newest closed first. */
+function LoansTable({ loans: unsorted }: { loans: PublicLoan[] }) {
+    if (unsorted.length === 0) return <p className="tt-muted">No loans found on those protocols.</p>;
+    const loans = [...unsorted].sort((a, b) => b.closedAt - a.closedAt);
+    return (
+        <div className="tt-table-wrap">
+            <table className="tt-table">
+                <thead>
+                    <tr>
+                        <th>Protocol</th>
+                        <th>Opened</th>
+                        <th>Closed</th>
+                        <th>Peak debt</th>
+                        <th>Outcome</th>
+                        <th>Closing tx</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {loans.map((l) => (
+                        <tr key={`${l.position}:${l.signatures.open}`}>
+                            <td>{PROTOCOL_LABELS[l.protocol] ?? l.protocol}</td>
+                            <td>{day(l.openedAt)}</td>
+                            <td>{day(l.closedAt)}</td>
+                            <td className="tt-mono">{l.usdMicro ? usd6(l.usdMicro) : "no price"}</td>
+                            <td><OutcomePill outcome={l.outcome} /></td>
+                            <td className="tt-mono">
+                                <a href={explorerTx(l.signatures.end)} target="_blank" rel="noreferrer">{shortAddress(l.signatures.end)}</a>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
+/** Read-only: what an import would give this wallet. Reads only on a click, since a fresh read spends API credits. */
+function ImportPreviewCard({ wallet }: { wallet: string }) {
+    const [asked, setAsked] = useState(false);
+    const { data, error, loading, reload } = useAsync(asked ? wallet : null, getImportPreview);
+    return (
+        <section className="tt-card" aria-labelledby="prev-h">
+            <span className="tt-eyebrow">Preview only, not a TrustTrail record</span>
+            <h2 id="prev-h" className="tt-title">Import preview</h2>
+            <p className="tt-muted">
+                What an import would find for this wallet, priced and scored the same way. Nothing is written on-chain.
+            </p>
+            {!asked && <div><button onClick={() => setAsked(true)}>Preview an import</button></div>}
+            {loading && <p className="tt-muted" role="status">Reading history from {PROTOCOLS.length} protocols… up to a minute</p>}
+            {error && (
+                <>
+                    <p className="tt-error" role="alert">{previewError(error)}</p>
+                    <div><button onClick={reload}>Try again</button></div>
+                </>
+            )}
+            {data && <PreviewBody preview={data} />}
+        </section>
+    );
+}
+
+function previewError(err: Error): string {
+    const retryAt = err instanceof ApiError ? err.body.retryAt : undefined;
+    return typeof retryAt === "number" ? `${err.message} (after ${dateTime(retryAt)}).` : `Could not preview: ${err.message}`;
+}
+
+function PreviewBody({ preview: p }: { preview: ImportPreview }) {
+    const c = p.counts;
+    const tiles = [
+        { label: "Imported score", value: String(p.score), note: "the imported part only, no tier" },
+        {
+            label: "Meaningful loans",
+            value: `${p.meaningfulOnTime} on time`,
+            note: `weight ${(Number(p.meaningfulWeightBps) / 10_000).toFixed(1)} · $100+ and held 24 h+`,
+        },
+        { label: "Loans found", value: String(c.loans), note: `${c.priced} priced · ${c.unpriced} without a price` },
+    ];
+    return (
+        <>
+            <p className="tt-muted">
+                Checked {ago(p.computedAt)}{p.cached ? " (saved result)" : ""}: {protocolNames(p.checkedProtocols)}.
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
+                {tiles.map((t) => (
+                    <div key={t.label} className="tt-tile">
+                        <span className="tt-muted">{t.label}</span>
+                        <span className="tt-big">{t.value}</span>
+                        <span className="tt-muted" style={{ fontSize: 13 }}>{t.note}</span>
+                    </div>
+                ))}
+            </div>
+            {c.unpriced > 0 && (
+                <p className="tt-muted">
+                    {c.unpriced} loans have no price{c.unpricedLiquidations > 0 ? `, ${c.unpricedLiquidations} of them liquidated or defaulted` : ""}.
+                    They are listed below but not scored, so they neither raise nor lower this score.
+                </p>
+            )}
+            {c.sameTransaction > 0 && <p className="tt-muted">{c.sameTransaction} loans opened and repaid in one transaction were skipped.</p>}
+            {p.historyCapped && (
+                <p className="tt-muted" style={{ color: "var(--tt-warning)" }}>
+                    This wallet has more history than one read covers, so older loans may be missing.
+                </p>
+            )}
+            <LoansTable loans={p.loans} />
+        </>
+    );
+}
+
 
 function LookupForm({ compact = false }: { compact?: boolean }) {
     const navigate = useNavigate();
