@@ -80,7 +80,7 @@ The pool lends real value against collateral, so lender safety comes first.
 
 Northwind reads the score account in the browser with one `getAccountInfo` call and decodes it itself (`app/src/partner.ts`), without TrustTrail's backend. That is the point: the record is portable.
 
-Tests: 254, all run by CI on every push: 48 for the TrustTrail program, 69 for the pool program (35 unit, 34 LiteSVM integration) and 137 for the backend.
+Tests: 271, all run by CI on every push: 48 for the TrustTrail program, 69 for the pool program (35 unit, 34 LiteSVM integration) and 154 for the backend.
 
 ## Documentation
 
@@ -110,7 +110,8 @@ cargo test -p trusttrail           # TrustTrail program tests
 cargo test -p pool                 # pool unit + LiteSVM integration tests
 
 # Backend (backend/.env: SOLANA_RPC_URL, HELIUS_API, DATABASE_URL, TUSDC_MINT,
-# WRITER_PRIVATE_KEY, FAUCET_PRIVATE_KEY, ALLOWED_ORIGINS, plus price keys)
+# WRITER_PRIVATE_KEY, FAUCET_PRIVATE_KEY, ALLOWED_ORIGINS, plus price keys;
+# optional preview limits in backend/.env.example)
 cd backend && npm install
 npx tsx --test "src/**/*.test.ts"
 npx tsx src/server.ts

@@ -136,7 +136,7 @@ Northwind (`app/src/partner.ts`) derives the score account address, fetches it w
 | Helius | Enriched transaction history for the import |
 | Pyth Hermes | Signed price updates posted with each borrow; the key stays on the backend |
 | Binance, Birdeye | USD price of each imported loan at its peak |
-| Postgres | Import records (public through `GET /import-history`) and faucet claims |
+| Postgres | Import records (public through `GET /import-history`), import preview cache and limits, faucet claims |
 
 ## Keys
 

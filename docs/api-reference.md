@@ -18,6 +18,7 @@ The backend reads Solana state and builds **unsigned** transactions; the wallet 
 | POST | [`/import/prepare`](#post-importprepare) | Import transaction for the wallet to co-sign |
 | POST | [`/import/submit`](#post-importsubmit) | Sends the co-signed import |
 | GET | [`/import-history/:wallet`](#get-import-historywallet) | Every loan an import counted, with its price |
+| GET | [`/import-preview/:wallet`](#get-import-previewwallet) | What an import would give, read only (cached, rate limited) |
 | GET | [`/pool`](#get-pool) | Rates per tier, utilization, lender APY, reserve, collaterals |
 | GET | [`/loans/:wallet`](#get-loanswallet) | The wallet's offer, balances and open loans with health |
 | POST | [`/borrow/prepare`](#post-borrowprepare) | Borrow transactions |
@@ -134,6 +135,36 @@ The backend refuses a transaction whose message differs from the one it prepared
 ### GET /import-history/:wallet
 
 The latest confirmed import; `?all=true` returns every import, newest first. Each import lists `score`, `meaningfulOnTime`, `meaningfulWeightBps`, `previousImportDate`, `computedAt`, `newLoans`, `checkedProtocols`, the confirming `txSignature`, and every loan with its protocol, position, mint, amount, USD value, price, price source and price gap. `404` if the wallet never imported.
+
+### GET /import-preview/:wallet
+
+What an import would give the wallet, with nothing signed or written. The history is read, priced and scored like an import, over the whole history (as a first import would be). There is no tier: a tier also needs the native part.
+
+```bash
+curl https://trusttrail-devnet-api.onrender.com/import-preview/Bc8CaB5EKstRyp4NnoMGaQ5ANVnF782Yh7PaeuJWAb8Q
+```
+
+```json
+{
+  "wallet": "Bc8C…Ab8Q",
+  "computedAt": 1791820800,
+  "cached": false,
+  "checkedProtocols": ["kamino", "marginfi", "save", "jupiter_lend", "loopscale"],
+  "score": 412,
+  "meaningfulOnTime": 3,
+  "meaningfulWeightBps": "31250",
+  "counts": { "loans": 9, "priced": 8, "unpriced": 1, "unpricedLiquidations": 0, "sameTransaction": 2 },
+  "historyCapped": false,
+  "loans": ["…same shape as the loans in /import-history…"]
+}
+```
+
+- `computedAt` is the backend's clock when the history was read. A cached answer keeps it and has `cached: true`.
+- Each wallet's result is reused for `IMPORT_PREVIEW_CACHE_HOURS` (default 6). Cached answers are free and never limited.
+- Fresh reads are limited per IP (`IMPORT_PREVIEW_PER_IP_PER_HOUR`, default 5 an hour) and overall (`IMPORT_PREVIEW_PER_DAY`, default 50 in 24 hours). Reads still running and failed reads count, since they spend Helius credits too. Over a limit: `429` with `retryAt`. Requests arriving at the same moment can pass a limit by one or two.
+- `historyCapped` is `true` when the page limit (20 pages of 100 transactions per address) cut the wallet's or a position's history short, so older loans may be missing.
+- `unpricedLiquidations` counts liquidated or defaulted loans without a price: they are listed but not scored.
+- `400` for an invalid address (not counted toward the limits), `502` when the history could not be read.
 
 ---
 

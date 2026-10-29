@@ -46,6 +46,10 @@ sequenceDiagram
 
 The program blends it with the native score, weighted by how much the wallet has borrowed through TrustTrail ([blend](scoring-model.md#4-blending-with-imported-history)). Imported meaningful loans count toward the Silver and Gold gates. An imported liquidation lowers the imported score, but it does not set the 90-day block, which only native liquidations do.
 
+## Preview before importing
+
+`GET /import-preview/:wallet` ([API](api-reference.md#get-import-previewwallet)) reads, prices and scores any wallet's history the same way, without a signature or a transaction. The Record page shows it in a card marked "Preview only, not a TrustTrail record". Results are cached for a few hours and fresh reads are rate limited per IP and per day, because each read spends Helius credits.
+
 ## Public and checkable
 
 Every confirmed import is stored with every loan it counted: protocol, position, token, amount, USD value, price, price source, price time and gap, outcome and the signatures that opened and closed it. `GET /import-history/:wallet` returns it, so anyone can check a score against its loans. The Score page shows the same coverage per protocol.
@@ -55,4 +59,5 @@ Every confirmed import is stored with every loan it counted: protocol, position,
 - The import is trusted through the backend's signature. The program cannot verify outside history itself; the wallet's co-signature only proves consent.
 - Some prices come from Binance pairs in USDT, taken as 1 USDT = $1.
 - Loans in a token with no price source are left out, including their liquidations.
+- Each address's history is read up to 20 pages of 100 transactions and 730 days back; older loans are not seen. The preview says when the page limit was reached (`historyCapped`).
 - Imports before multi-protocol support (Kamino only) are kept and shown with the protocols they actually checked.
