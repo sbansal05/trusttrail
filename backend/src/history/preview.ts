@@ -55,8 +55,24 @@ export function previewLimits(env: NodeJS.ProcessEnv = process.env): PreviewLimi
     };
 }
 
+/** Lets one fresh read run at a time. Kept in process memory, so it is right only while the API runs as one instance. */
+export class PreviewLock {
+    private held = false;
+
+    tryAcquire(): boolean {
+        if (this.held) return false;
+        this.held = true;
+        return true;
+    }
+
+    release(): void {
+        this.held = false;
+    }
+}
+
 export type PreviewDeps = {
     pool: Pool;
+    lock: PreviewLock;
     prices: PriceSources;
     history: (wallet: string) => Promise<{ loans: Loan[]; capped: boolean }>;
     checkedProtocols: string[];
@@ -117,19 +133,31 @@ async function countSince(pool: Pool, since: number, window: number, ip?: string
     return { n: Number(rows[0].n), retryAt: Number(rows[0].oldest) + window };
 }
 
-/** A cached preview if one is fresh enough; otherwise a new read, within the per-IP and daily limits. */
+/**
+ * A cached preview if one is fresh enough; otherwise a new read, one at a time, within the per-IP and daily limits.
+ */
 export async function previewImport(deps: PreviewDeps, wallet: string, ip: string): Promise<ImportPreview> {
-    const { pool, limits } = deps;
     const now = deps.now();
-
-    const hit = await pool.query(
+    const hit = await deps.pool.query(
         `SELECT result FROM import_previews WHERE wallet = $1 AND status = 'done' AND created_at > $2
          ORDER BY id DESC LIMIT 1`,
-        [wallet, now - limits.cacheHours * HOUR],
+        [wallet, now - deps.limits.cacheHours * HOUR],
     );
     if (hit.rows.length > 0) return { ...(hit.rows[0].result as ImportPreview), cached: true };
 
-    // Counted, then reserved below without a lock: requests arriving together can pass the limit by one or two.
+    if (!deps.lock.tryAcquire()) throw new ImportError(429, "Another preview is running, try again in a minute");
+    try {
+        return await freshPreview(deps, wallet, ip, now);
+    } finally {
+        deps.lock.release();
+    }
+}
+
+/** Checks the limits, reserves a row and reads the history. */
+async function freshPreview(deps: PreviewDeps, wallet: string, ip: string, now: number): Promise<ImportPreview> {
+    const { pool, limits } = deps;
+    // Counted, then reserved below. Only the lock keeps two requests from passing a limit together, so with more
+    // than one instance they could pass it by one or two.
     const perIp = await countSince(pool, now - HOUR, HOUR, ip);
     if (perIp.n >= limits.perIpPerHour) {
         throw new ImportError(429, "too many previews from this IP, try again later", { retryAt: perIp.retryAt });

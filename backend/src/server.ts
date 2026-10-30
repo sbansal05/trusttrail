@@ -9,7 +9,7 @@ import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import { createPool } from "./history/db";
 import { migrate } from "./history/store";
 import { importHistoryRouter, importPreviewRouter, importRouter } from "./history/routes";
-import { migratePreview, previewLimits } from "./history/preview";
+import { PreviewLock, migratePreview, previewLimits } from "./history/preview";
 import { liveSources } from "./history/prices";
 import { ADAPTERS, walletHistory } from "./history/adapters";
 import { buildLoans } from "./history/buildLoans";
@@ -58,6 +58,7 @@ app.use(
 app.use(
     importPreviewRouter({
         pool,
+        lock: new PreviewLock(),
         prices,
         history: walletLoans,
         checkedProtocols,

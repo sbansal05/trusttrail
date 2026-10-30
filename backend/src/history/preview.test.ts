@@ -5,7 +5,7 @@ import express from "express";
 import { newDb } from "pg-mem";
 import type { Pool } from "pg";
 import { Keypair } from "@solana/web3.js";
-import { migratePreview, previewImport, previewLimits, PREVIEW_DEFAULTS, PREVIEW_KEEP_SECS, type PreviewDeps } from "./preview";
+import { PreviewLock, migratePreview, previewImport, previewLimits, PREVIEW_DEFAULTS, PREVIEW_KEEP_SECS, type PreviewDeps } from "./preview";
 import { ImportError } from "./importService";
 import { importPreviewRouter } from "./routes";
 import { priceLoans, type PriceSources } from "./prices";
@@ -46,6 +46,7 @@ async function setup(opts: { limits?: Partial<PreviewDeps["limits"]>; history?: 
     const reads: string[] = [];
     const deps: PreviewDeps = {
         pool,
+        lock: new PreviewLock(),
         prices,
         history: opts.history ?? (async (w) => {
             reads.push(w);
@@ -59,8 +60,23 @@ async function setup(opts: { limits?: Partial<PreviewDeps["limits"]>; history?: 
     return { deps, clock, reads, rows };
 }
 
-const refused = (status: number) => (err: unknown) => err instanceof ImportError && err.status === status;
+const refused = (status: number, message?: string) => (err: unknown) =>
+    err instanceof ImportError && err.status === status && (message === undefined || err.message === message);
+const BUSY = "Another preview is running, try again in a minute";
 
+/** A history that waits until `release()`; `reading` resolves once the read has started. */
+function heldHistory() {
+    let release!: () => void;
+    let started!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const reading = new Promise<void>((r) => (started = r));
+    const history: PreviewDeps["history"] = async () => {
+        started();
+        await gate;
+        return { loans: [], capped: false };
+    };
+    return { history, reading, release };
+}
 test("preview limits: defaults when unset, positive integers used, anything else falls back", () => {
     assert.deepEqual(previewLimits({}), { cacheHours: 6, perIpPerHour: 5, perDay: 50 });
     assert.deepEqual(
@@ -178,26 +194,53 @@ test("a failed read is 502, is never served from the cache, and still counts tow
 });
 
 test("a read still running counts toward the limits", async () => {
-    let release!: () => void;
-    let started!: () => void;
-    const gate = new Promise<void>((r) => (release = r));
-    const reading = new Promise<void>((r) => (started = r));
-    const { deps, rows } = await setup({
-        limits: { perIpPerHour: 1 },
-        history: async () => {
-            started();
-            await gate;
-            return { loans: [], capped: false };
-        },
-    });
+    const { history, reading, release } = heldHistory();
+    const { deps, rows } = await setup({ limits: { perIpPerHour: 1 }, history });
     const running = previewImport(deps, wallet(), "1.1.1.1");
     await reading;
     assert.deepEqual((await rows()).map((r) => r.status), ["pending"]);
-    await assert.rejects(previewImport(deps, wallet(), "1.1.1.1"), refused(429));
+    // A second instance, with its own lock, still sees the pending row.
+    const otherInstance = { ...deps, lock: new PreviewLock() };
+    await assert.rejects(previewImport(otherInstance, wallet(), "1.1.1.1"), refused(429, "too many previews from this IP, try again later"));
 
     release();
     assert.equal((await running).score, 0);
     assert.deepEqual((await rows()).map((r) => r.status), ["done"]);
+});
+
+test("one fresh preview at a time: another is refused while it runs, cache hits are still answered", async () => {
+    const { history, reading, release } = heldHistory();
+    const { deps, rows } = await setup({ history });
+    const cachedWallet = wallet();
+    await deps.pool.query(
+        `INSERT INTO import_previews (wallet, requester_ip, status, result, created_at) VALUES ($1, '9.9.9.9', 'done', $2, $3)`,
+        [cachedWallet, JSON.stringify({ wallet: cachedWallet, computedAt: NOW, loans: [] }), NOW],
+    );
+
+    const running = previewImport(deps, wallet(), "1.1.1.1");
+    await reading;
+    await assert.rejects(previewImport(deps, wallet(), "2.2.2.2"), refused(429, BUSY));
+    assert.equal((await previewImport(deps, cachedWallet, "2.2.2.2")).cached, true);
+    assert.equal((await rows()).length, 2); // the refused request reserved nothing
+
+    release();
+    await running;
+    assert.equal((await previewImport(deps, wallet(), "2.2.2.2")).cached, false);
+});
+
+test("the lock is free again after a failed read and after a limit refusal", async () => {
+    let fail = true;
+    const { deps } = await setup({
+        limits: { perIpPerHour: 1 },
+        history: async () => {
+            if (fail) throw new Error("helius down");
+            return { loans: [], capped: false };
+        },
+    });
+    await assert.rejects(previewImport(deps, wallet(), "1.1.1.1"), refused(502));
+    await assert.rejects(previewImport(deps, wallet(), "1.1.1.1"), refused(429, "too many previews from this IP, try again later"));
+    fail = false;
+    assert.equal((await previewImport(deps, wallet(), "2.2.2.2")).cached, false);
 });
 
 test("rows older than 2 days are deleted when a new read is reserved", async () => {
