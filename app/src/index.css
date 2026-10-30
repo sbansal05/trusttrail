@@ -172,15 +172,16 @@ input {
 
 /* Phones */
 @media (max-width: 600px) {
-  .tt-header-inner { padding: 14px 16px; }
+  .tt-header-inner { padding: 12px 12px; }
   .tt-page { padding: 24px 16px 40px; }
   .tt-card { padding: 20px; }
   .tt-tile { box-sizing: border-box; }
-  .tt-header-app { column-gap: 8px; row-gap: 10px; }
-  .tt-header-app .tt-brand { font-size: 22px; gap: 8px; }
-  .tt-header-app .tt-brand img { width: 28px; height: 28px; }
-  .tt-header-app .tt-header-actions { order: 2; gap: 8px; }
+  .tt-header-app { column-gap: 6px; row-gap: 8px; }
+  .tt-header-app .tt-brand { font-size: 20px; gap: 6px; }
+  .tt-header-app .tt-brand img { width: 24px; height: 24px; }
+  .tt-header-app .tt-header-actions { order: 2; gap: 6px; }
+  .tt-header-app .tt-pill { font-size: 12px; padding: 2px 8px; }
   .tt-header-app .tt-nav { order: 3; width: 100%; flex-wrap: nowrap; overflow-x: auto; }
   .tt-header-app .tt-nav a { padding: 8px 12px; white-space: nowrap; }
-  .wallet-adapter-button.wallet-adapter-button-trigger { padding: 0 14px; font-size: 14px; }
+  .wallet-adapter-button.wallet-adapter-button-trigger { padding: 0 12px; font-size: 13px; height: 40px; }
 }
