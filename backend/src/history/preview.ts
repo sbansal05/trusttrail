@@ -3,7 +3,10 @@
 //! wallet within the cache hours) and the rate limits (every row of an IP in the last hour, every row in the last
 //! 24 hours). A row is reserved as 'pending' before the history is read, so reads still running and failed reads
 //! count too: Helius credits are spent either way.
+//! The read itself runs in a worker thread with a memory cap and a time limit, so a history too large to read
+//! stops only that worker, not the API.
 
+import { join } from "node:path";
 import type { Pool } from "pg";
 import { withoutSameTransaction } from "./buildLoans";
 import { ImportError } from "./importService";
@@ -11,6 +14,7 @@ import { priceLoans, type PriceSources } from "./prices";
 import { importSummary } from "./scoring";
 import { publicLoan, type PublicLoan } from "./store";
 import type { Loan } from "./types";
+import { runWorker, WorkerOutOfMemory, WorkerTimeout } from "./runWorker";
 
 export const PREVIEW_SCHEMA = `
 CREATE TABLE IF NOT EXISTS import_previews (
@@ -34,8 +38,11 @@ const DAY = 24 * HOUR;
 /** Rows older than this are deleted on each new read; longer than both limit windows. */
 export const PREVIEW_KEEP_SECS = 2 * DAY;
 
-export type PreviewLimits = { cacheHours: number; perIpPerHour: number; perDay: number };
-export const PREVIEW_DEFAULTS: PreviewLimits = { cacheHours: 6, perIpPerHour: 5, perDay: 50 };
+/** A preview read is stopped after this long. */
+export const PREVIEW_TIMEOUT_MS = 120_000;
+
+export type PreviewLimits = { cacheHours: number; perIpPerHour: number; perDay: number; workerHeapMb: number };
+export const PREVIEW_DEFAULTS: PreviewLimits = { cacheHours: 6, perIpPerHour: 5, perDay: 50, workerHeapMb: 160 };
 
 function positiveInt(env: NodeJS.ProcessEnv, name: string, fallback: number): number {
     const v = env[name];
@@ -52,6 +59,7 @@ export function previewLimits(env: NodeJS.ProcessEnv = process.env): PreviewLimi
         cacheHours: positiveInt(env, "IMPORT_PREVIEW_CACHE_HOURS", PREVIEW_DEFAULTS.cacheHours),
         perIpPerHour: positiveInt(env, "IMPORT_PREVIEW_PER_IP_PER_HOUR", PREVIEW_DEFAULTS.perIpPerHour),
         perDay: positiveInt(env, "IMPORT_PREVIEW_PER_DAY", PREVIEW_DEFAULTS.perDay),
+        workerHeapMb: positiveInt(env, "IMPORT_PREVIEW_WORKER_HEAP_MB", PREVIEW_DEFAULTS.workerHeapMb),
     };
 }
 
@@ -73,10 +81,16 @@ export class PreviewLock {
 export type PreviewDeps = {
     pool: Pool;
     lock: PreviewLock;
+    limits: PreviewLimits;
+    now: () => number; // unix seconds
+    read: (wallet: string) => Promise<ImportPreview>; // the fresh read; in the API it runs in a worker
+};
+
+/** What a fresh read needs: the history, the prices and the clock. */
+export type ReadDeps = {
     prices: PriceSources;
     history: (wallet: string) => Promise<{ loans: Loan[]; capped: boolean }>;
     checkedProtocols: string[];
-    limits: PreviewLimits;
     now: () => number; // unix seconds
 };
 
@@ -94,7 +108,7 @@ export type ImportPreview = {
 };
 
 /** Builds the preview from the wallet's history: scored like a first import, over the whole history. */
-async function readPreview(deps: PreviewDeps, wallet: string): Promise<ImportPreview> {
+export async function readPreview(deps: ReadDeps, wallet: string): Promise<ImportPreview> {
     const { loans, capped } = await deps.history(wallet);
     const { kept, sameTransaction } = withoutSameTransaction(loans);
     const { priced, dropped } = await priceLoans(kept, deps.prices);
@@ -120,6 +134,13 @@ async function readPreview(deps: PreviewDeps, wallet: string): Promise<ImportPre
         historyCapped: capped,
         loans: all,
     };
+}
+
+const PREVIEW_WORKER = join(__dirname, "previewWorker.ts");
+
+/** The API's fresh read: `readPreview` in a worker thread, capped at `heapMb` of heap and PREVIEW_TIMEOUT_MS. */
+export function workerRead(heapMb: number): (wallet: string) => Promise<ImportPreview> {
+    return (wallet) => runWorker<ImportPreview>(PREVIEW_WORKER, { wallet }, { heapMb, timeoutMs: PREVIEW_TIMEOUT_MS });
 }
 
 /** Rows since `since`, and when the oldest of them leaves the window. */
@@ -175,12 +196,14 @@ async function freshPreview(deps: PreviewDeps, wallet: string, ip: string, now: 
     const id = String(rows[0].id);
 
     try {
-        const preview = await readPreview(deps, wallet);
+        const preview = await deps.read(wallet);
         await pool.query(`UPDATE import_previews SET status = 'done', result = $2 WHERE id = $1`, [id, JSON.stringify(preview)]);
         return preview;
     } catch (err) {
         await pool.query(`UPDATE import_previews SET status = 'failed' WHERE id = $1`, [id]);
         console.error("import preview read failed:", err);
+        if (err instanceof WorkerOutOfMemory) throw new ImportError(422, "This wallet's history is too large to preview");
+        if (err instanceof WorkerTimeout) throw new ImportError(504, "The preview took too long, try again later");
         throw new ImportError(502, "the wallet's history could not be read, try again later");
     }
 }

@@ -9,9 +9,9 @@ import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import { createPool } from "./history/db";
 import { migrate } from "./history/store";
 import { importHistoryRouter, importPreviewRouter, importRouter } from "./history/routes";
-import { PreviewLock, migratePreview, previewLimits } from "./history/preview";
+import { PreviewLock, migratePreview, previewLimits, workerRead } from "./history/preview";
 import { liveSources } from "./history/prices";
-import { ADAPTERS, walletHistory } from "./history/adapters";
+import { CHECKED_PROTOCOLS, walletLoans } from "./history/adapters";
 import { buildLoans } from "./history/buildLoans";
 import { scoreRouter } from "./score/routes";
 import { faucetRouter } from "./faucet/routes";
@@ -37,35 +37,28 @@ const connection = new Connection(process.env.SOLANA_RPC_URL || "https://api.dev
 // The backend's own writer key: whitelisted in TrustTrail, separate from the admin / upgrade wallet.
 const writer = Keypair.fromSecretKey(new Uint8Array(JSON.parse(required("WRITER_PRIVATE_KEY"))));
 
-const prices = liveSources();
-const checkedProtocols = ADAPTERS.map((a) => a.protocol);
-async function walletLoans(wallet: string) {
-    const { events, capped } = await walletHistory(wallet);
-    return { loans: buildLoans(events), capped };
-}
-
 app.use(importHistoryRouter(pool));
 app.use(
     importRouter({
         pool,
         connection,
         writer,
-        prices,
+        prices: liveSources(),
         history: async (wallet) => (await walletLoans(wallet)).loans,
-        checkedProtocols,
+        checkedProtocols: CHECKED_PROTOCOLS,
     }),
 );
+const limits = previewLimits();
 app.use(
     importPreviewRouter({
         pool,
         lock: new PreviewLock(),
-        prices,
-        history: walletLoans,
-        checkedProtocols,
-        limits: previewLimits(),
+        limits,
         now: () => Math.floor(Date.now() / 1000),
+        read: workerRead(limits.workerHeapMb),
     }),
 );
+
 app.use(scoreRouter({ pool, connection }));
 // Test-USDC faucet: its own key, the tUSDC mint authority (separate from the writer key).
 app.use(

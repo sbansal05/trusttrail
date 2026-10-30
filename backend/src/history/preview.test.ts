@@ -5,7 +5,12 @@ import express from "express";
 import { newDb } from "pg-mem";
 import type { Pool } from "pg";
 import { Keypair } from "@solana/web3.js";
-import { PreviewLock, migratePreview, previewImport, previewLimits, PREVIEW_DEFAULTS, PREVIEW_KEEP_SECS, type PreviewDeps } from "./preview";
+import { join } from "node:path";
+import {
+    PreviewLock, migratePreview, previewImport, previewLimits, readPreview,
+    PREVIEW_DEFAULTS, PREVIEW_KEEP_SECS, type PreviewDeps, type ReadDeps,
+} from "./preview";
+import { runWorker, WorkerOutOfMemory, WorkerTimeout } from "./runWorker";
 import { ImportError } from "./importService";
 import { importPreviewRouter } from "./routes";
 import { priceLoans, type PriceSources } from "./prices";
@@ -38,23 +43,31 @@ const prices: PriceSources = {
     birdeye: async () => null,
 };
 
-async function setup(opts: { limits?: Partial<PreviewDeps["limits"]>; history?: PreviewDeps["history"] } = {}) {
+type SetupOptions = { limits?: Partial<PreviewDeps["limits"]>; history?: ReadDeps["history"]; read?: PreviewDeps["read"] };
+
+/** A preview service on an in-memory Postgres; the read runs in this thread with fake history and prices. */
+async function setup(opts: SetupOptions = {}) {
     const { Pool } = newDb().adapters.createPg();
     const pool = new Pool() as Pool;
     await migratePreview(pool);
     const clock = { now: NOW };
     const reads: string[] = [];
-    const deps: PreviewDeps = {
-        pool,
-        lock: new PreviewLock(),
+    const now = () => clock.now;
+    const readDeps: ReadDeps = {
         prices,
         history: opts.history ?? (async (w) => {
             reads.push(w);
             return { loans: HISTORY, capped: true };
         }),
         checkedProtocols: ["kamino", "marginfi"],
+        now,
+    };
+    const deps: PreviewDeps = {
+        pool,
+        lock: new PreviewLock(),
         limits: { ...PREVIEW_DEFAULTS, ...opts.limits },
-        now: () => clock.now,
+        now,
+        read: opts.read ?? ((w) => readPreview(readDeps, w)),
     };
     const rows = async () => (await pool.query(`SELECT wallet, requester_ip, status, created_at FROM import_previews ORDER BY id`)).rows;
     return { deps, clock, reads, rows };
@@ -70,7 +83,7 @@ function heldHistory() {
     let started!: () => void;
     const gate = new Promise<void>((r) => (release = r));
     const reading = new Promise<void>((r) => (started = r));
-    const history: PreviewDeps["history"] = async () => {
+    const history: ReadDeps["history"] = async () => {
         started();
         await gate;
         return { loans: [], capped: false };
@@ -78,14 +91,20 @@ function heldHistory() {
     return { history, reading, release };
 }
 test("preview limits: defaults when unset, positive integers used, anything else falls back", () => {
-    assert.deepEqual(previewLimits({}), { cacheHours: 6, perIpPerHour: 5, perDay: 50 });
+    assert.deepEqual(previewLimits({}), { cacheHours: 6, perIpPerHour: 5, perDay: 50, workerHeapMb: 160 });
     assert.deepEqual(
-        previewLimits({ IMPORT_PREVIEW_CACHE_HOURS: "12", IMPORT_PREVIEW_PER_IP_PER_HOUR: "3", IMPORT_PREVIEW_PER_DAY: "100" }),
-        { cacheHours: 12, perIpPerHour: 3, perDay: 100 },
+        previewLimits({
+            IMPORT_PREVIEW_CACHE_HOURS: "12", IMPORT_PREVIEW_PER_IP_PER_HOUR: "3", IMPORT_PREVIEW_PER_DAY: "100",
+            IMPORT_PREVIEW_WORKER_HEAP_MB: "200",
+        }),
+        { cacheHours: 12, perIpPerHour: 3, perDay: 100, workerHeapMb: 200 },
     );
     for (const bad of ["0", "-1", "2.5", "abc", " "]) {
         assert.deepEqual(
-            previewLimits({ IMPORT_PREVIEW_CACHE_HOURS: bad, IMPORT_PREVIEW_PER_IP_PER_HOUR: bad, IMPORT_PREVIEW_PER_DAY: bad }),
+            previewLimits({
+                IMPORT_PREVIEW_CACHE_HOURS: bad, IMPORT_PREVIEW_PER_IP_PER_HOUR: bad, IMPORT_PREVIEW_PER_DAY: bad,
+                IMPORT_PREVIEW_WORKER_HEAP_MB: bad,
+            }),
             PREVIEW_DEFAULTS,
         );
     }
@@ -241,6 +260,25 @@ test("the lock is free again after a failed read and after a limit refusal", asy
     await assert.rejects(previewImport(deps, wallet(), "1.1.1.1"), refused(429, "too many previews from this IP, try again later"));
     fail = false;
     assert.equal((await previewImport(deps, wallet(), "2.2.2.2")).cached, false);
+});
+test("a read over the worker's memory cap is 422, its row is failed, and the API and the lock carry on", async () => {
+    const fixture = join(__dirname, "runWorker.fixture.ts");
+    const { deps, rows } = await setup({ read: () => runWorker(fixture, { mode: "oom" }, { heapMb: 32, timeoutMs: 20_000 }) });
+    await assert.rejects(previewImport(deps, wallet(), "1.1.1.1"), refused(422, "This wallet's history is too large to preview"));
+    assert.deepEqual((await rows()).map((r) => r.status), ["failed"]);
+    // Not refused as busy: the lock was released.
+    await assert.rejects(previewImport(deps, wallet(), "1.1.1.1"), refused(422));
+});
+
+test("a read that takes too long is 504 and its row is failed; other read errors stay 502", async () => {
+    let error: Error = new WorkerTimeout("slow");
+    const { deps, rows } = await setup({ read: async () => { throw error; } });
+    await assert.rejects(previewImport(deps, wallet(), "1.1.1.1"), refused(504, "The preview took too long, try again later"));
+    error = new WorkerOutOfMemory("big");
+    await assert.rejects(previewImport(deps, wallet(), "1.1.1.1"), refused(422));
+    error = new Error("helius down");
+    await assert.rejects(previewImport(deps, wallet(), "1.1.1.1"), refused(502));
+    assert.deepEqual((await rows()).map((r) => r.status), ["failed", "failed", "failed"]);
 });
 
 test("rows older than 2 days are deleted when a new read is reserved", async () => {

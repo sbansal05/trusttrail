@@ -157,7 +157,7 @@ function ImportPreviewCard({ wallet }: { wallet: string }) {
                 What an import would find for this wallet, priced and scored the same way. Nothing is written on-chain.
             </p>
             {!asked && <div><button onClick={() => setAsked(true)}>Preview an import</button></div>}
-            {loading && <p className="tt-muted" role="status">Reading history from {PROTOCOLS.length} protocols… up to a minute</p>}
+            {loading && <p className="tt-muted" role="status">Reading history from {PROTOCOLS.length} protocols… up to two minutes</p>}
             {error && (
                 <>
                     <p className="tt-error" role="alert">{previewError(error)}</p>

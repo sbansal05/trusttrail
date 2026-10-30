@@ -1,6 +1,7 @@
 //! Every supported protocol, read from one pass over the wallet's history.
 
-import type { CreditEvent } from "../types";
+import type { CreditEvent, Loan } from "../types";
+import { buildLoans } from "../buildLoans";
 import { readHistory, type History, type TransactionList } from "../../heliusClient";
 import { walletEvents, type Adapter } from "./common";
 import { kamino } from "./kamino";
@@ -12,6 +13,7 @@ import { jupiterStateEvents, mainnetConnection, sdkPositionReader } from "./jupi
 import { loopscaleDueDates } from "./loopscaleTerms";
 
 export const ADAPTERS: Adapter[] = [kamino, marginfi, save, jupiterLend, loopscale];
+export const CHECKED_PROTOCOLS = ADAPTERS.map((a) => a.protocol);
 
 /**
  * Each address's history is fetched once per import, however many steps read it.
@@ -42,4 +44,10 @@ export async function walletHistory(wallet: string): Promise<WalletHistory> {
     events.push(...(await jupiterStateEvents(events, sdkPositionReader(mainnetConnection()))));
     // Loopscale terms start at the borrow and again at each rollover; the due date in force is set here.
     return { events: await loopscaleDueDates(wallet, events, history), capped: capped() };
+}
+
+/** The wallet's closed loans, and whether the page limit cut its history short. */
+export async function walletLoans(wallet: string): Promise<{ loans: Loan[]; capped: boolean }> {
+    const { events, capped } = await walletHistory(wallet);
+    return { loans: buildLoans(events), capped };
 }
