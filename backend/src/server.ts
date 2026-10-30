@@ -12,7 +12,6 @@ import { importHistoryRouter, importPreviewRouter, importRouter } from "./histor
 import { PreviewLock, migratePreview, previewLimits, workerRead } from "./history/preview";
 import { liveSources } from "./history/prices";
 import { CHECKED_PROTOCOLS, walletLoans } from "./history/adapters";
-import { buildLoans } from "./history/buildLoans";
 import { scoreRouter } from "./score/routes";
 import { faucetRouter } from "./faucet/routes";
 import { migrateFaucet } from "./faucet/faucet";
