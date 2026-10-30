@@ -80,7 +80,7 @@ The pool lends real value against collateral, so lender safety comes first.
 
 Northwind reads the score account in the browser with one `getAccountInfo` call and decodes it itself (`app/src/partner.ts`), without TrustTrail's backend. That is the point: the record is portable.
 
-Tests: 271, all run by CI on every push: 48 for the TrustTrail program, 69 for the pool program (35 unit, 34 LiteSVM integration) and 154 for the backend.
+Tests: 280, all run by CI on every push: 48 for the TrustTrail program, 69 for the pool program (35 unit, 34 LiteSVM integration) and 163 for the backend.
 
 ## Documentation
 

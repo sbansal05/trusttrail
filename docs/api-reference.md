@@ -161,7 +161,9 @@ curl https://trusttrail-devnet-api.onrender.com/import-preview/Bc8CaB5EKstRyp4Nn
 
 - `computedAt` is the backend's clock when the history was read. A cached answer keeps it and has `cached: true`.
 - Each wallet's result is reused for `IMPORT_PREVIEW_CACHE_HOURS` (default 6). Cached answers are free and never limited.
-- Fresh reads are limited per IP (`IMPORT_PREVIEW_PER_IP_PER_HOUR`, default 5 an hour) and overall (`IMPORT_PREVIEW_PER_DAY`, default 50 in 24 hours). Reads still running and failed reads count, since they spend Helius credits too. Over a limit: `429` with `retryAt`. Requests arriving at the same moment can pass a limit by one or two.
+- Fresh reads are limited per IP (`IMPORT_PREVIEW_PER_IP_PER_HOUR`, default 5 an hour) and overall (`IMPORT_PREVIEW_PER_DAY`, default 50 in 24 hours). Reads still running and failed reads count, since they spend Helius credits too. Over a limit: `429` with `retryAt`.
+- Only one fresh read runs at a time: while one runs, another gets `429 Another preview is running, try again in a minute` (cached answers are still served).
+- Each fresh read runs in a worker thread with a memory cap (`IMPORT_PREVIEW_WORKER_HEAP_MB`, default 160) and a 2-minute limit. A history too large for the cap is `422 This wallet's history is too large to preview`; a read over 2 minutes is `504`. Either way the API itself keeps running.
 - `historyCapped` is `true` when the page limit (20 pages of 100 transactions per address) cut the wallet's or a position's history short, so older loans may be missing.
 - `unpricedLiquidations` counts liquidated or defaulted loans without a price: they are listed but not scored.
 - `400` for an invalid address (not counted toward the limits), `502` when the history could not be read.

@@ -48,7 +48,7 @@ The program blends it with the native score, weighted by how much the wallet has
 
 ## Preview before importing
 
-`GET /import-preview/:wallet` ([API](api-reference.md#get-import-previewwallet)) reads, prices and scores any wallet's history the same way, without a signature or a transaction. The Record page shows it in a card marked "Preview only, not a TrustTrail record". Results are cached for a few hours and fresh reads are rate limited per IP and per day, because each read spends Helius credits.
+`GET /import-preview/:wallet` ([API](api-reference.md#get-import-previewwallet)) reads, prices and scores any wallet's history the same way, without a signature or a transaction. The Record page shows it in a card marked "Preview only, not a TrustTrail record". Results are cached for a few hours and fresh reads are rate limited per IP and per day, because each read spends Helius credits. One fresh read runs at a time, in a worker thread with its own memory cap, so a wallet whose history is too large gets a `422` instead of stopping the API.
 
 ## Public and checkable
 
