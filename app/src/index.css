@@ -150,7 +150,15 @@ input {
 .tt-list { margin: 0; padding: 0; list-style: none; }
 .tt-list > li { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--tt-surface-line); }
 .tt-list > li:last-child { border-bottom: none; }
-.tt-table-wrap { overflow-x: auto; }
+/* Soft edge shadows show that a table scrolls sideways; the covers (same colour as the card) hide them at either end. */
+.tt-table-wrap {
+  overflow-x: auto;
+  background:
+    linear-gradient(to right, var(--tt-surface) 30%, transparent) left center / 40px 100% no-repeat local,
+    linear-gradient(to left, var(--tt-surface) 30%, transparent) right center / 40px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, rgba(237, 230, 216, 0.22), transparent) left center / 14px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, rgba(237, 230, 216, 0.22), transparent) right center / 14px 100% no-repeat scroll;
+}
 .tt-table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 640px; }
 .tt-table th { text-align: left; font-weight: 500; color: var(--tt-text-secondary); padding: 10px 8px; border-bottom: 1px solid var(--tt-surface-line); }
 .tt-table td { padding: 12px 8px; }
@@ -167,6 +175,7 @@ input {
   .tt-header-inner { padding: 14px 16px; }
   .tt-page { padding: 24px 16px 40px; }
   .tt-card { padding: 20px; }
+  .tt-tile { box-sizing: border-box; }
   .tt-header-app { column-gap: 8px; row-gap: 10px; }
   .tt-header-app .tt-brand { font-size: 22px; gap: 8px; }
   .tt-header-app .tt-brand img { width: 28px; height: 28px; }

@@ -233,8 +233,7 @@ function LookupForm({ compact = false }: { compact?: boolean }) {
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 placeholder={compact ? "Check another wallet" : "Wallet address"}
-                style={{ flex: "1 1 260px", minWidth: 0 }}
-            />
+                style={{ flex: "1 1 200px", minWidth: 0 }}            />
             <button type="submit" disabled={!ok}>Look up</button>
         </form>
     );
