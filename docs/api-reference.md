@@ -162,6 +162,7 @@ curl https://trusttrail-devnet-api.onrender.com/import-preview/Bc8CaB5EKstRyp4Nn
 - `computedAt` is the backend's clock when the history was read. A cached answer keeps it and has `cached: true`.
 - Each wallet's result is reused for `IMPORT_PREVIEW_CACHE_HOURS` (default 6). Cached answers are free and never limited.
 - Fresh reads are limited per IP (`IMPORT_PREVIEW_PER_IP_PER_HOUR`, default 5 an hour) and overall (`IMPORT_PREVIEW_PER_DAY`, default 50 in 24 hours). Reads still running and failed reads count, since they spend Helius credits too. Over a limit: `429` with `retryAt`.
+- Known limit: on Render several proxies sit in front of the backend, and with `trust proxy` set to 1 the IP it records is an internal Render proxy address that changes between requests, so the per-IP limit does not work as intended today. Helius credits are still protected by the overall daily limit, the one-at-a-time rule and the cache.
 - Only one fresh read runs at a time: while one runs, another gets `429 Another preview is running, try again in a minute` (cached answers are still served).
 - Each fresh read runs in a worker thread with a memory cap (`IMPORT_PREVIEW_WORKER_HEAP_MB`, default 160) and a 2-minute limit. A history too large for the cap is `422 This wallet's history is too large to preview`; a read over 2 minutes is `504`. Either way the API itself keeps running.
 - `historyCapped` is `true` when the page limit (20 pages of 100 transactions per address) cut the wallet's or a position's history short, so older loans may be missing.
