@@ -109,7 +109,6 @@ function HealthBar({ loan: l }: { loan: LoanView }) {
                 <div style={{ position: "absolute", left: at(l.liqThresholdBps), top: 0, bottom: 0, width: 2, background: "var(--tt-text)" }} />
             </div>
             <div className="tt-mono tt-muted" style={{ position: "relative", height: 18, fontSize: 12 }}>
-                <span style={{ position: "absolute", left: 0 }}>100%</span>
                 <span style={{ position: "absolute", left: at(l.liqThresholdBps), transform: "translateX(-50%)" }}>{pctBps(l.liqThresholdBps, 0)}</span>
                 <span style={{ position: "absolute", right: 0 }}>200%+</span>
             </div>
